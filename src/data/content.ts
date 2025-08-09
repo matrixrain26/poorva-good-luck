@@ -12,24 +12,6 @@ export const audioSrc = "/audio/chalte-chalte.mp3";
 // Photos with notes (inside jokes)
 export const photos = [
   {
-    id: 1,
-    src: "/images/DSC_0235.jpg",
-    alt: "Poorva with friends",
-    note: "Friends are just family you choose. You'll find your new family abroad too!"
-  },
-  {
-    id: 2,
-    src: "/images/DSC_0241.jpg",
-    alt: "Poorva celebrating",
-    note: "Every achievement deserves a celebration, no matter how small!"
-  },
-  {
-    id: 3,
-    src: "/images/PSX_20250706_114447.jpg",
-    alt: "Poorva outdoors",
-    note: "Don't forget to explore and enjoy the journey, not just the destination!"
-  },
-  {
     id: 4,
     src: "/images/WhatsApp Image 2025-08-09 at 23.37.16 (1).jpeg",
     alt: "Poorva at a special moment",
