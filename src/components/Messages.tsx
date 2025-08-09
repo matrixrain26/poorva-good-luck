@@ -1,0 +1,272 @@
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { messages as initialMessages, defaultNewMessage } from '../data/content';
+
+// Message dialog component
+const AddMessageDialog = ({ isOpen, onClose, onSave }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (author: string, message: string) => void;
+}) => {
+  const [author, setAuthor] = useState(defaultNewMessage.author);
+  const [message, setMessage] = useState(defaultNewMessage.message);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Reset form when dialog opens
+      setAuthor('');
+      setMessage('');
+    }
+  }, [isOpen]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (author.trim() && message.trim()) {
+      onSave(author, message);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div 
+        className="bg-background border border-white/10 rounded-2xl p-6 w-full max-w-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="message-dialog-title"
+      >
+        <h2 id="message-dialog-title" className="text-2xl font-bold mb-4">Add Your Message</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="message-author" className="block text-sm font-medium mb-1">Your Name</label>
+            <input
+              type="text"
+              id="message-author"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 rounded-lg border border-white/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              required
+            />
+          </div>
+          <div className="mb-6">
+            <label htmlFor="message-text" className="block text-sm font-medium mb-1">Your Message</label>
+            <textarea
+              id="message-text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 rounded-lg border border-white/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 min-h-[100px]"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/5 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition"
+            >
+              Add Message
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const Messages = () => {
+  // Combine initial messages with any from localStorage
+  const loadMessages = () => {
+    try {
+      const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
+      return [...initialMessages, ...savedMessages];
+    } catch (error) {
+      console.error('Error loading messages from localStorage:', error);
+      return [...initialMessages];
+    }
+  };
+
+  const [messages, setMessages] = useState(loadMessages);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  // Auto-play functionality
+  useEffect(() => {
+    if (isPlaying && messages.length > 1) {
+      intervalRef.current = window.setInterval(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % messages.length);
+      }, 4000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isPlaying, messages.length]);
+
+  // Handle next/prev navigation
+  const goToNext = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % messages.length);
+    resetAutoPlay();
+  };
+
+  const goToPrev = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + messages.length) % messages.length);
+    resetAutoPlay();
+  };
+
+  // Go to a specific message by index
+  const goToIndex = (index: number) => {
+    setCurrentIndex(index);
+    resetAutoPlay();
+  };
+
+  // Reset the auto-play timer
+  const resetAutoPlay = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
+    if (isPlaying && messages.length > 1) {
+      intervalRef.current = window.setInterval(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % messages.length);
+      }, 4000);
+    }
+  };
+
+  // Shuffle messages
+  const shuffleMessages = () => {
+    const shuffled = [...messages].sort(() => Math.random() - 0.5);
+    setMessages(shuffled);
+    setCurrentIndex(0);
+    resetAutoPlay();
+  };
+
+  // Save a new message
+  const saveMessage = (author: string, message: string) => {
+    const newMessage = { id: Date.now(), author, message };
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
+    
+    // Save to localStorage (only user-added messages)
+    try {
+      const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
+      localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
+    } catch (error) {
+      console.error('Error saving message to localStorage:', error);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-4xl mx-auto px-4">
+      <div 
+        className="bg-white/5 rounded-2xl p-6 border border-white/10 shadow-lg relative"
+        onMouseEnter={() => setIsPlaying(false)}
+        onMouseLeave={() => setIsPlaying(true)}
+        onFocus={() => setIsPlaying(false)}
+        onBlur={() => setIsPlaying(true)}
+      >
+        <div className="min-h-[200px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="text-center"
+            >
+              <p className="text-lg md:text-xl mb-4">"{messages[currentIndex].message}"</p>
+              <p className="text-sm text-zinc-400">— {messages[currentIndex].author}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Navigation controls */}
+        <div className="flex justify-between items-center mt-6">
+          <button
+            onClick={goToPrev}
+            className="p-2 rounded-full hover:bg-white/10 transition"
+            aria-label="Previous message"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+
+          <div className="flex gap-2">
+            {messages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToIndex(index)}
+                className={`w-2 h-2 rounded-full transition ${
+                  index === currentIndex ? 'bg-white' : 'bg-white/30'
+                }`}
+                aria-label={`Go to message ${index + 1}`}
+                aria-current={index === currentIndex ? 'true' : 'false'}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={goToNext}
+            className="p-2 rounded-full hover:bg-white/10 transition"
+            aria-label="Next message"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-center gap-4 mt-6">
+          <button
+            onClick={shuffleMessages}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
+            aria-label="Shuffle messages"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 3 21 3 21 8"></polyline>
+              <line x1="4" y1="20" x2="21" y2="3"></line>
+              <polyline points="21 16 21 21 16 21"></polyline>
+              <line x1="15" y1="15" x2="21" y2="21"></line>
+              <line x1="4" y1="4" x2="9" y2="9"></line>
+            </svg>
+            Shuffle
+          </button>
+
+          <button
+            onClick={() => setIsDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-600 hover:to-fuchsia-600 transition"
+            aria-label="Add your message"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Your Message
+          </button>
+        </div>
+      </div>
+
+      <AddMessageDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onSave={saveMessage}
+      />
+    </div>
+  );
+};
+
+export default Messages;
