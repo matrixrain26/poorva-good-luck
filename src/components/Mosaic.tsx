@@ -105,7 +105,6 @@ const Mosaic = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoCaption, setPhotoCaption] = useState('');
   const [photoAlt, setPhotoAlt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load user photos from JSONBin (with localStorage fallback) on component mount
@@ -113,7 +112,6 @@ const Mosaic = () => {
     console.log('Mosaic component mounted, loading user photos');
     
     const loadPhotos = async () => {
-      setIsLoading(true);
       try {
         // Fetch photos from JSONBin (with localStorage fallback)
         const userPhotos = await fetchPhotos();
@@ -144,8 +142,6 @@ const Mosaic = () => {
         console.error('Error loading photos:', error);
         // Fallback to initial photos only if everything fails
         setPhotos(initialPhotos);
-      } finally {
-        setIsLoading(false);
       }
     };
     
