@@ -7,12 +7,12 @@ export const recipientName = "Poorva Bhide";
 export const homecomingDate = "2026-08-14T00:00:00";
 
 // Audio sources in priority order
-// 1. Local file in public directory (works in both dev and production if file exists)
-export const audioSrc = "/audio/chalte-chalte.mp3";
-// 2. Direct Google Drive URL (public link)
-export const backupAudioSrc1 = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
-// 3. Cloudinary hosted audio (may have CORS issues)
-export const backupAudioSrc2 = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
+// 1. Cloudinary hosted audio (most reliable for production)
+export const audioSrc = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
+// 2. Local file in public directory (works in dev if file exists)
+export const backupAudioSrc1 = "/audio/chalte-chalte.mp3";
+// 3. Direct Google Drive URL (public link, may have download issues)
+export const backupAudioSrc2 = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
 // Export backupAudioSrc for compatibility with existing code
 export const backupAudioSrc = backupAudioSrc1;
 

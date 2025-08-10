@@ -246,16 +246,9 @@ const AudioPlayer = () => {
         }}
       >
         {/* Add source elements as fallbacks */}
-        <source src={currentAudioSrc} type="audio/mpeg" />
-        {AUDIO_FORMATS.map((format) => (
-          format !== 'mp3' && (
-            <source 
-              key={`${audioSourceIndex}-${format}`}
-              src={generateSourceUrl(audioSources[audioSourceIndex], format)}
-              type={`audio/${format}`}
-            />
-          )
-        ))}
+        <source src={audioSrc} type="audio/mpeg" crossOrigin="anonymous" />
+        <source src={backupAudioSrc1} type="audio/mpeg" crossOrigin="anonymous" />
+        <source src={backupAudioSrc2} type="audio/mpeg" crossOrigin="anonymous" />
         Your browser does not support the audio element.
       </audio>
       
