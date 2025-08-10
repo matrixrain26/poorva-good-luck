@@ -261,8 +261,54 @@ const Mosaic = () => {
               filename: result.info.original_filename
             }));
             
+            // Set state and automatically submit the form after successful upload
             setSelectedFile({ name: result.info.original_filename } as File);
             setPreviewUrl(result.info.secure_url);
+            
+            // Auto-populate caption and alt text if they're empty
+            if (!photoCaption) {
+              setPhotoCaption('Memory with Poorva');
+            }
+            
+            if (!photoAlt) {
+              setPhotoAlt(result.info.original_filename || 'Photo memory with Poorva');
+            }
+            
+            // Close the widget explicitly
+            uploadWidget.close();
+            
+            // Add a slight delay before auto-submitting to ensure state updates
+            setTimeout(() => {
+              // Create and save the new photo directly
+              const newPhoto: Photo = {
+                id: Date.now(),
+                src: result.info.secure_url,
+                alt: photoAlt || result.info.original_filename || 'Photo memory with Poorva',
+                note: photoCaption || 'Memory with Poorva'
+              };
+              
+              console.log('Auto-creating new photo:', newPhoto);
+              
+              // Add to photos array
+              const updatedPhotos = [...photos, newPhoto];
+              setPhotos(updatedPhotos);
+              
+              // Save to localStorage
+              const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
+              try {
+                localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
+                console.log('User photos saved to localStorage automatically after upload');
+              } catch (storageError) {
+                console.error('Error saving to localStorage after upload:', storageError);
+              }
+              
+              // Reset form and close dialog
+              setSelectedFile(null);
+              setPreviewUrl(null);
+              setPhotoCaption('');
+              setPhotoAlt('');
+              setIsDialogOpen(false);
+            }, 500);
           } catch (err) {
             console.error('Error processing Cloudinary success:', err);
             // Still try to set the state even if localStorage fails
@@ -317,7 +363,7 @@ const Mosaic = () => {
         
         console.log('New photo object created:', newPhoto);
         
-        // Add to photos array
+        // Add to photos array immediately to update UI
         const updatedPhotos = [...photos, newPhoto];
         setPhotos(updatedPhotos);
         
@@ -327,38 +373,42 @@ const Mosaic = () => {
         const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
         
         // Validate that we can stringify the userPhotos before attempting to save
-        const userPhotosJson = JSON.stringify(userPhotos);
-        console.log('User photos JSON size:', userPhotosJson.length, 'bytes');
-        
-        // Check if localStorage is available and has space
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem('userPhotos', userPhotosJson);
-            console.log('User photos saved to localStorage successfully');
-          } catch (storageError) {
-            console.error('Error saving user photos to localStorage:', storageError);
-            // If localStorage is full, try to remove old data or reduce the size
-            if (storageError instanceof DOMException && 
-                (storageError.name === 'QuotaExceededError' || 
-                 storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-              
-              alert('Storage space is full. Some older photos may not be saved locally.');
-              
-              // Keep only the most recent 10 photos if storage is full
-              const reducedUserPhotos = userPhotos.slice(-10);
-              try {
-                localStorage.setItem('userPhotos', JSON.stringify(reducedUserPhotos));
-                console.log('Reduced user photos saved to localStorage');
-              } catch (finalError) {
-                console.error('Final attempt to save to localStorage failed:', finalError);
+        try {
+          const userPhotosJson = JSON.stringify(userPhotos);
+          console.log('User photos JSON size:', userPhotosJson.length, 'bytes');
+          
+          // Check if localStorage is available and has space
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem('userPhotos', userPhotosJson);
+              console.log('User photos saved to localStorage successfully');
+            } catch (storageError) {
+              console.error('Error saving user photos to localStorage:', storageError);
+              // If localStorage is full, try to remove old data or reduce the size
+              if (storageError instanceof DOMException && 
+                  (storageError.name === 'QuotaExceededError' || 
+                   storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+                
+                console.warn('Storage space is full. Reducing saved photos.');
+                
+                // Keep only the most recent 10 photos if storage is full
+                const reducedUserPhotos = userPhotos.slice(-10);
+                try {
+                  localStorage.setItem('userPhotos', JSON.stringify(reducedUserPhotos));
+                  console.log('Reduced user photos saved to localStorage');
+                } catch (finalError) {
+                  console.error('Final attempt to save to localStorage failed:', finalError);
+                }
               }
             }
+          } else {
+            console.warn('localStorage is not available in this environment');
           }
-        } else {
-          console.warn('localStorage is not available in this environment');
+        } catch (jsonError) {
+          console.error('Error stringifying user photos:', jsonError);
         }
         
-        // Reset form
+        // Reset form and close dialog immediately to avoid UI freeze
         setSelectedFile(null);
         setPreviewUrl(null);
         setPhotoCaption('');
