@@ -246,9 +246,9 @@ const AudioPlayer = () => {
         }}
       >
         {/* Add source elements as fallbacks */}
-        <source src={audioSrc} type="audio/mpeg" crossOrigin="anonymous" />
-        <source src={backupAudioSrc1} type="audio/mpeg" crossOrigin="anonymous" />
-        <source src={backupAudioSrc2} type="audio/mpeg" crossOrigin="anonymous" />
+        <source src={audioSrc} type="audio/mpeg" />
+        <source src={backupAudioSrc1} type="audio/mpeg" />
+        <source src={backupAudioSrc2} type="audio/mpeg" />
         Your browser does not support the audio element.
       </audio>
       
