@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { messages as initialMessages, defaultNewMessage } from '../data/content';
+import { fetchMessages, addMessage, Message as MessageType } from '../utils/jsonBinApi';
 
 // Message dialog component
 const AddMessageDialog = ({ isOpen, onClose, onSave }: {
@@ -82,22 +83,42 @@ const AddMessageDialog = ({ isOpen, onClose, onSave }: {
 };
 
 const Messages = () => {
-  // Combine initial messages with any from localStorage
-  const loadMessages = () => {
-    try {
-      const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
-      return [...initialMessages, ...savedMessages];
-    } catch (error) {
-      console.error('Error loading messages from localStorage:', error);
-      return [...initialMessages];
-    }
-  };
-
-  const [messages, setMessages] = useState(loadMessages);
+  // State for messages
+  const [messages, setMessages] = useState<MessageType[]>(initialMessages);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  
+  // Load messages from JSONBin on component mount
+  useEffect(() => {
+    const loadMessagesFromJsonBin = async () => {
+      setIsLoading(true);
+      try {
+        const jsonBinMessages = await fetchMessages();
+        if (jsonBinMessages.length > 0) {
+          // Combine initial messages with JSONBin messages
+          setMessages([...initialMessages, ...jsonBinMessages]);
+        }
+      } catch (error) {
+        console.error('Error loading messages from JSONBin:', error);
+        // Fallback to localStorage if JSONBin fails
+        try {
+          const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
+          if (savedMessages.length > 0) {
+            setMessages([...initialMessages, ...savedMessages]);
+          }
+        } catch (localError) {
+          console.error('Error loading messages from localStorage:', localError);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadMessagesFromJsonBin();
+  }, []);
 
   // Auto-play functionality
   useEffect(() => {
@@ -153,17 +174,36 @@ const Messages = () => {
   };
 
   // Save a new message
-  const saveMessage = (author: string, message: string) => {
+  const saveMessage = async (author: string, message: string) => {
     const newMessage = { id: Date.now(), author, message };
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     
-    // Save to localStorage (only user-added messages)
+    // Show loading state if needed
+    setIsLoading(true);
+    
+    // Save to JSONBin
     try {
-      const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
-      localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
+      // Add message to JSONBin
+      const success = await addMessage(author, message);
+      
+      if (!success) {
+        console.warn('Failed to save message to JSONBin, falling back to localStorage');
+        // Fallback to localStorage if JSONBin fails
+        const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
+        localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
+      }
     } catch (error) {
-      console.error('Error saving message to localStorage:', error);
+      console.error('Error saving message:', error);
+      // Fallback to localStorage
+      try {
+        const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
+        localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
+      } catch (localError) {
+        console.error('Error saving to localStorage:', localError);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -176,6 +216,15 @@ const Messages = () => {
         onFocus={() => setIsPlaying(false)}
         onBlur={() => setIsPlaying(true)}
       >
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center z-10">
+            <div className="flex flex-col items-center">
+              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="mt-2 text-sm text-zinc-300">Loading messages...</p>
+            </div>
+          </div>
+        )}
         <div className="min-h-[200px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.div
