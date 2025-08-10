@@ -108,11 +108,61 @@ const Mosaic = () => {
   
   // Load user photos from localStorage on component mount
   useEffect(() => {
-    const savedPhotos = localStorage.getItem('userPhotos');
-    if (savedPhotos) {
-      const userPhotos = JSON.parse(savedPhotos) as Photo[];
-      // Combine initial photos with user photos
-      setPhotos([...initialPhotos, ...userPhotos]);
+    console.log('Mosaic component mounted, loading user photos');
+    
+    try {
+      // Check if localStorage is available
+      if (typeof localStorage !== 'undefined') {
+        const savedPhotos = localStorage.getItem('userPhotos');
+        console.log('Saved photos from localStorage:', savedPhotos ? 'found' : 'not found');
+        
+        if (savedPhotos) {
+          try {
+            const userPhotos = JSON.parse(savedPhotos) as Photo[];
+            console.log(`Loaded ${userPhotos.length} user photos from localStorage`);
+            
+            // Validate user photos before using them
+            const validUserPhotos = userPhotos.filter(photo => {
+              const isValid = 
+                photo && 
+                typeof photo.id === 'number' && 
+                typeof photo.src === 'string' && 
+                typeof photo.alt === 'string' && 
+                typeof photo.note === 'string';
+                
+              if (!isValid) {
+                console.warn('Found invalid photo in localStorage:', photo);
+              }
+              return isValid;
+            });
+            
+            if (validUserPhotos.length !== userPhotos.length) {
+              console.warn(`Filtered out ${userPhotos.length - validUserPhotos.length} invalid photos`);
+              // Save the cleaned up photos back to localStorage
+              localStorage.setItem('userPhotos', JSON.stringify(validUserPhotos));
+            }
+            
+            // Combine initial photos with user photos
+            setPhotos([...initialPhotos, ...validUserPhotos]);
+          } catch (parseError) {
+            console.error('Error parsing user photos from localStorage:', parseError);
+            // If JSON parsing fails, reset localStorage
+            localStorage.removeItem('userPhotos');
+            // Still use initial photos
+            setPhotos(initialPhotos);
+          }
+        } else {
+          console.log('No user photos found in localStorage, using initial photos only');
+          setPhotos(initialPhotos);
+        }
+      } else {
+        console.warn('localStorage is not available in this environment');
+        setPhotos(initialPhotos);
+      }
+    } catch (error) {
+      console.error('Error loading user photos:', error);
+      // Fallback to initial photos
+      setPhotos(initialPhotos);
     }
     
     // Listen for the custom event from Hero component
@@ -120,21 +170,46 @@ const Mosaic = () => {
       setIsDialogOpen(true);
     };
     
+    console.log('Adding event listener for open-photo-dialog');
     window.addEventListener('open-photo-dialog', handleOpenPhotoDialog);
     
     return () => {
+      console.log('Removing event listener for open-photo-dialog');
       window.removeEventListener('open-photo-dialog', handleOpenPhotoDialog);
     };
   }, []);
 
   // Open Cloudinary Upload Widget
   const openCloudinaryWidget = () => {
+    console.log('Attempting to open Cloudinary widget');
+    
     // Check if Cloudinary is loaded
     if (!window.cloudinary) {
       console.error('Cloudinary widget not loaded');
       alert('Image upload service is not available. Please try again later.');
+      
+      // Try to reload the script dynamically
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.type = 'text/javascript';
+      script.onload = () => {
+        console.log('Cloudinary script loaded dynamically');
+        setTimeout(() => {
+          if (window.cloudinary) {
+            console.log('Cloudinary available after dynamic load, retrying...');
+            openCloudinaryWidget();
+          }
+        }, 1000);
+      };
+      script.onerror = (e) => {
+        console.error('Failed to load Cloudinary script dynamically:', e);
+        alert('Could not connect to image upload service. Please check your internet connection and try again.');
+      };
+      document.head.appendChild(script);
       return;
     }
+    
+    console.log('Cloudinary widget available, creating upload widget...');
     
     // Create and open the Cloudinary Upload Widget
     const uploadWidget = window.cloudinary.createUploadWidget(
@@ -172,11 +247,33 @@ const Mosaic = () => {
           return;
         }
         
+        // Log all widget events to help with debugging
+        console.log('Cloudinary widget event:', result?.event, result);
+        
         if (result && result.event === 'success') {
           // On successful upload
           console.log('Cloudinary upload success:', result.info);
-          setSelectedFile({ name: result.info.original_filename } as File);
-          setPreviewUrl(result.info.secure_url);
+          try {
+            // Store Cloudinary response in localStorage for debugging
+            localStorage.setItem('lastCloudinaryUpload', JSON.stringify({
+              timestamp: new Date().toISOString(),
+              url: result.info.secure_url,
+              filename: result.info.original_filename
+            }));
+            
+            setSelectedFile({ name: result.info.original_filename } as File);
+            setPreviewUrl(result.info.secure_url);
+          } catch (err) {
+            console.error('Error processing Cloudinary success:', err);
+            // Still try to set the state even if localStorage fails
+            setSelectedFile({ name: result.info.original_filename } as File);
+            setPreviewUrl(result.info.secure_url);
+          }
+        } else if (result && result.event === 'close') {
+          console.log('Cloudinary widget closed by user');
+        } else if (result && result.event === 'error') {
+          console.error('Cloudinary widget error:', result);
+          alert('There was an error with the upload widget. Please try again later.');
         }
       }
     );
@@ -204,37 +301,78 @@ const Mosaic = () => {
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submission started');
     
     if (selectedFile && previewUrl && photoCaption && photoAlt) {
-      // Create new photo object with Cloudinary URL
-      const newPhoto: Photo = {
-        id: Date.now(), // Use timestamp as unique ID
-        src: previewUrl, // This is now a Cloudinary URL
-        alt: photoAlt,
-        note: photoCaption
-      };
-      
-      // Add to photos array
-      const updatedPhotos = [...photos, newPhoto];
-      setPhotos(updatedPhotos);
-      
-      // Save user photos to localStorage
-      // We still save to localStorage for persistence between sessions
-      // but now the src URLs point to Cloudinary instead of local data URLs
-      const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
       try {
-        localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
-        console.log('User photos saved to localStorage successfully');
+        console.log('Creating new photo with Cloudinary URL:', previewUrl);
+        
+        // Create new photo object with Cloudinary URL
+        const newPhoto: Photo = {
+          id: Date.now(), // Use timestamp as unique ID
+          src: previewUrl, // This is now a Cloudinary URL
+          alt: photoAlt,
+          note: photoCaption
+        };
+        
+        console.log('New photo object created:', newPhoto);
+        
+        // Add to photos array
+        const updatedPhotos = [...photos, newPhoto];
+        setPhotos(updatedPhotos);
+        
+        // Save user photos to localStorage
+        // We still save to localStorage for persistence between sessions
+        // but now the src URLs point to Cloudinary instead of local data URLs
+        const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
+        
+        // Validate that we can stringify the userPhotos before attempting to save
+        const userPhotosJson = JSON.stringify(userPhotos);
+        console.log('User photos JSON size:', userPhotosJson.length, 'bytes');
+        
+        // Check if localStorage is available and has space
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('userPhotos', userPhotosJson);
+            console.log('User photos saved to localStorage successfully');
+          } catch (storageError) {
+            console.error('Error saving user photos to localStorage:', storageError);
+            // If localStorage is full, try to remove old data or reduce the size
+            if (storageError instanceof DOMException && 
+                (storageError.name === 'QuotaExceededError' || 
+                 storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+              
+              alert('Storage space is full. Some older photos may not be saved locally.');
+              
+              // Keep only the most recent 10 photos if storage is full
+              const reducedUserPhotos = userPhotos.slice(-10);
+              try {
+                localStorage.setItem('userPhotos', JSON.stringify(reducedUserPhotos));
+                console.log('Reduced user photos saved to localStorage');
+              } catch (finalError) {
+                console.error('Final attempt to save to localStorage failed:', finalError);
+              }
+            }
+          }
+        } else {
+          console.warn('localStorage is not available in this environment');
+        }
+        
+        // Reset form
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        setPhotoCaption('');
+        setPhotoAlt('');
+        setIsDialogOpen(false);
+        
+        console.log('Form submission completed successfully');
       } catch (error) {
-        console.error('Error saving user photos to localStorage:', error);
+        console.error('Error in form submission:', error);
+        alert('There was an error saving your photo. Please try again.');
       }
-      
-      // Reset form
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      setPhotoCaption('');
-      setPhotoAlt('');
-      setIsDialogOpen(false);
+    } else {
+      console.warn('Form submission attempted with incomplete data');
+      alert('Please complete all fields and upload a photo before submitting.');
     }
   };
 
