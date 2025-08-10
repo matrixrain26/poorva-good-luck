@@ -5,11 +5,15 @@ import Countdown from './components/Countdown';
 import Mosaic from './components/Mosaic';
 import Messages from './components/Messages';
 import AudioPlayer from './components/AudioPlayer';
+import AudioTest from './components/AudioTest';
 import { recipientName } from './data/content';
 
 function App() {
   // Track whether we should show animations (respect prefers-reduced-motion)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  
+  // Check if we should show the audio test page
+  const [showAudioTest, setShowAudioTest] = useState(false);
 
   // Check user's motion preference
   useEffect(() => {
@@ -25,7 +29,38 @@ function App() {
       mediaQuery.removeEventListener('change', handleChange);
     };
   }, []);
+  
+  // Check URL parameters for debug mode
+  useEffect(() => {
+    // Parse URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugAudio = urlParams.get('debugAudio');
+    
+    // Show audio test page if debugAudio parameter is present
+    if (debugAudio === 'true') {
+      console.log('Audio debug mode activated');
+      setShowAudioTest(true);
+    }
+  }, []);
 
+  // If in audio debug mode, only show the AudioTest component
+  if (showAudioTest) {
+    return (
+      <div className="min-h-screen text-zinc-100 p-6 bg-background">
+        <div className="mb-6">
+          <button 
+            onClick={() => setShowAudioTest(false)}
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded"
+          >
+            Return to Main Page
+          </button>
+        </div>
+        <AudioTest />
+      </div>
+    );
+  }
+  
+  // Otherwise show the normal app
   return (
     <motion.div
       initial={{ opacity: 0 }}
