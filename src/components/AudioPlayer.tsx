@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { audioSrc } from '../data/content';
+import { audioSrc, backupAudioSrc } from '../data/content';
 
 const AudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,28 +76,43 @@ const AudioPlayer = () => {
     };
   }, [isPlaying]);
 
+  const [currentAudioSrc, setCurrentAudioSrc] = useState(audioSrc);
+
+  // Initialize audio element when component mounts
   useEffect(() => {
-    // Initialize audio element when component mounts
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume;
+      
       // Add error handling
       audioRef.current.onerror = (e) => {
         console.error('Audio playback error:', e);
+        
+        // Try backup source if main source fails
+        if (currentAudioSrc === audioSrc) {
+          console.log('Switching to backup audio source');
+          setCurrentAudioSrc(backupAudioSrc);
+        }
       };
     }
-  }, []);
+  }, [isMuted, volume, currentAudioSrc]);
 
   return (
     <div>
       <audio 
         ref={audioRef} 
-        src={audioSrc} 
+        src={currentAudioSrc} 
         loop 
         crossOrigin="anonymous"
         preload="auto"
         onEnded={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onError={() => {
+          console.error('Audio error event triggered');
+          if (currentAudioSrc === audioSrc) {
+            setCurrentAudioSrc(backupAudioSrc);
+          }
+        }}
       />
       
       <motion.div 

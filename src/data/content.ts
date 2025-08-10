@@ -6,8 +6,10 @@ export const recipientName = "Poorva Bhide";
 // Homecoming date (ISO string format)
 export const homecomingDate = "2026-08-14T00:00:00";
 
-// Audio source - using Cloudinary for reliable hosting
-export const audioSrc = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
+// Audio source - using direct public URL for maximum compatibility
+export const audioSrc = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
+// Backup audio source if the above doesn't work
+export const backupAudioSrc = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
 
 // Photos with notes (inside jokes)
 export const photos = [

@@ -222,7 +222,12 @@ const Mosaic = () => {
       // We still save to localStorage for persistence between sessions
       // but now the src URLs point to Cloudinary instead of local data URLs
       const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
-      localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
+      try {
+        localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
+        console.log('User photos saved to localStorage successfully');
+      } catch (error) {
+        console.error('Error saving user photos to localStorage:', error);
+      }
       
       // Reset form
       setSelectedFile(null);

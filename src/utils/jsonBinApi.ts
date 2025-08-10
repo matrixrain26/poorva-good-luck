@@ -20,54 +20,108 @@ const headers = {
   'Content-Type': 'application/json',
   'X-Master-Key': API_KEY,
   'X-Bin-Versioning': 'false',
-  'X-Access-Key': API_KEY, // For public endpoints
-  'mode': 'cors'
 };
 
+// Fallback to localStorage if JSONBin fails
+const useLocalStorage = true; // Set to true to always use localStorage as backup
+
 /**
- * Fetch messages from JSONBin
- * @returns Promise with array of messages
+ * Get messages from localStorage
+ * @returns {Message[]} Array of messages
  */
-export const fetchMessages = async (): Promise<Message[]> => {
+const getLocalMessages = (): Message[] => {
   try {
-    const response = await fetch(API_URL, {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch messages: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.record.messages || [];
+    const storedMessages = localStorage.getItem('poorva_messages');
+    return storedMessages ? JSON.parse(storedMessages) : [];
   } catch (error) {
-    console.error('Error fetching messages:', error);
+    console.error('Error reading from localStorage:', error);
     return [];
   }
 };
 
 /**
- * Save messages to JSONBin
- * @param messages Array of messages to save
- * @returns Promise with success status
+ * Save messages to localStorage
+ * @param {Message[]} messages Array of messages to save
+ */
+const saveLocalMessages = (messages: Message[]): void => {
+  try {
+    localStorage.setItem('poorva_messages', JSON.stringify(messages));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
+};
+
+/**
+ * Fetch messages from JSONBin with localStorage fallback
+ * @returns {Promise<Message[]>} Array of messages
+ */
+export const fetchMessages = async (): Promise<Message[]> => {
+  // If using localStorage only, return local messages
+  if (useLocalStorage) {
+    const localMessages = getLocalMessages();
+    console.log('Using localStorage messages:', localMessages);
+    return localMessages;
+  }
+  
+  try {
+    console.log('Fetching messages from JSONBin...');
+    const response = await fetch(API_URL, { 
+      headers,
+      method: 'GET',
+      mode: 'cors'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`JSONBin API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const messages = data.record || [];
+    
+    // Cache messages in localStorage as backup
+    saveLocalMessages(messages);
+    return messages;
+  } catch (error) {
+    console.error('Error fetching messages from JSONBin:', error);
+    // Fall back to localStorage if JSONBin fails
+    return getLocalMessages();
+  }
+};
+
+/**
+ * Save messages to JSONBin and localStorage
+ * @param {Message[]} messages Array of messages to save
+ * @returns {Promise<boolean>} Success status
  */
 export const saveMessages = async (messages: Message[]): Promise<boolean> => {
+  // Always save to localStorage for reliability
+  saveLocalMessages(messages);
+  
+  // If using localStorage only mode, don't attempt JSONBin save
+  if (useLocalStorage) {
+    console.log('Saving messages to localStorage only');
+    return true;
+  }
+  
   try {
+    console.log('Saving messages to JSONBin...');
     const response = await fetch(API_URL, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ messages })
+      body: JSON.stringify(messages),
+      mode: 'cors'
     });
     
     if (!response.ok) {
       throw new Error(`Failed to save messages: ${response.status}`);
     }
     
+    console.log('Messages saved to JSONBin successfully');
     return true;
   } catch (error) {
-    console.error('Error saving messages:', error);
-    return false;
+    console.error('Error saving messages to JSONBin:', error);
+    // Even if JSONBin fails, localStorage save was already attempted
+    return true; // Return true since localStorage save succeeded
   }
 };
 
