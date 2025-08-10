@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { photos as initialPhotos } from '../data/content';
+import { fetchPhotos, addPhoto, deletePhoto } from '../utils/cloudinaryApi';
 
 // Declare Cloudinary types
 declare global {
@@ -90,7 +91,7 @@ const PhotoTile = ({
 };
 
 // Type for photos (both initial and user-uploaded)
-type Photo = {
+export interface Photo {
   id: number;
   src: string;
   alt: string;
@@ -104,66 +105,51 @@ const Mosaic = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoCaption, setPhotoCaption] = useState('');
   const [photoAlt, setPhotoAlt] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Load user photos from localStorage on component mount
+  // Load user photos from JSONBin (with localStorage fallback) on component mount
   useEffect(() => {
     console.log('Mosaic component mounted, loading user photos');
     
-    try {
-      // Check if localStorage is available
-      if (typeof localStorage !== 'undefined') {
-        const savedPhotos = localStorage.getItem('userPhotos');
-        console.log('Saved photos from localStorage:', savedPhotos ? 'found' : 'not found');
+    const loadPhotos = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch photos from JSONBin (with localStorage fallback)
+        const userPhotos = await fetchPhotos();
+        console.log(`Loaded ${userPhotos.length} user photos from JSONBin/localStorage`);
         
-        if (savedPhotos) {
-          try {
-            const userPhotos = JSON.parse(savedPhotos) as Photo[];
-            console.log(`Loaded ${userPhotos.length} user photos from localStorage`);
+        // Validate user photos before using them
+        const validUserPhotos = userPhotos.filter(photo => {
+          const isValid = 
+            photo && 
+            typeof photo.id === 'number' && 
+            typeof photo.src === 'string' && 
+            typeof photo.alt === 'string' && 
+            typeof photo.note === 'string';
             
-            // Validate user photos before using them
-            const validUserPhotos = userPhotos.filter(photo => {
-              const isValid = 
-                photo && 
-                typeof photo.id === 'number' && 
-                typeof photo.src === 'string' && 
-                typeof photo.alt === 'string' && 
-                typeof photo.note === 'string';
-                
-              if (!isValid) {
-                console.warn('Found invalid photo in localStorage:', photo);
-              }
-              return isValid;
-            });
-            
-            if (validUserPhotos.length !== userPhotos.length) {
-              console.warn(`Filtered out ${userPhotos.length - validUserPhotos.length} invalid photos`);
-              // Save the cleaned up photos back to localStorage
-              localStorage.setItem('userPhotos', JSON.stringify(validUserPhotos));
-            }
-            
-            // Combine initial photos with user photos
-            setPhotos([...initialPhotos, ...validUserPhotos]);
-          } catch (parseError) {
-            console.error('Error parsing user photos from localStorage:', parseError);
-            // If JSON parsing fails, reset localStorage
-            localStorage.removeItem('userPhotos');
-            // Still use initial photos
-            setPhotos(initialPhotos);
+          if (!isValid) {
+            console.warn('Found invalid photo:', photo);
           }
-        } else {
-          console.log('No user photos found in localStorage, using initial photos only');
-          setPhotos(initialPhotos);
+          return isValid;
+        });
+        
+        if (validUserPhotos.length !== userPhotos.length) {
+          console.warn(`Filtered out ${userPhotos.length - validUserPhotos.length} invalid photos`);
         }
-      } else {
-        console.warn('localStorage is not available in this environment');
+        
+        // Combine initial photos with user photos
+        setPhotos([...initialPhotos, ...validUserPhotos]);
+      } catch (error) {
+        console.error('Error loading photos:', error);
+        // Fallback to initial photos only if everything fails
         setPhotos(initialPhotos);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading user photos:', error);
-      // Fallback to initial photos
-      setPhotos(initialPhotos);
-    }
+    };
+    
+    loadPhotos();
     
     // Listen for the custom event from Hero component
     const handleOpenPhotoDialog = () => {
@@ -284,7 +270,7 @@ const Mosaic = () => {
         }
         
         // Add a slight delay before auto-submitting to ensure state updates
-        setTimeout(() => {
+        setTimeout(async () => {
           // Create and save the new photo directly
           const newPhoto: Photo = {
             id: Date.now(),
@@ -295,17 +281,21 @@ const Mosaic = () => {
           
           console.log('Auto-creating new photo:', newPhoto);
           
-          // Add to photos array
-          const updatedPhotos = [...photos, newPhoto];
-          setPhotos(updatedPhotos);
-          
-          // Save to localStorage
-          const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
           try {
-            localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
-            console.log('User photos saved to localStorage automatically after upload');
-          } catch (storageError) {
-            console.error('Error saving to localStorage after upload:', storageError);
+            // Save to JSONBin via cloudinaryApi
+            console.log('Saving new photo to JSONBin:', newPhoto);
+            const success = await addPhoto(newPhoto);
+            
+            if (success) {
+              console.log('Photo saved successfully to JSONBin');
+              // Add to local state
+              const updatedPhotos = [...photos, newPhoto];
+              setPhotos(updatedPhotos);
+            } else {
+              console.error('Failed to save photo to JSONBin');
+            }
+          } catch (saveError) {
+            console.error('Error saving to JSONBin after upload:', saveError);
           }
           
           // Reset form and close dialog
@@ -317,7 +307,7 @@ const Mosaic = () => {
         }, 500);
       } catch (err) {
         console.error('Error processing Cloudinary success:', err);
-        // Still try to set the state even if localStorage fails
+        // Still try to set the state even if JSONBin fails
         setSelectedFile({ name: result.info.original_filename } as File);
         setPreviewUrl(result.info.secure_url);
       }
@@ -390,15 +380,32 @@ const Mosaic = () => {
     openCloudinaryWidget();
   };
 
-  // Handle photo deletion
-  const handleDeletePhoto = (id: number) => {
-    // Filter out the photo with the given id
-    const updatedPhotos = photos.filter(photo => photo.id !== id);
-    setPhotos(updatedPhotos);
+  // Handle delete photo
+  const handleDeletePhoto = async (id: number) => {
+    // Only allow deleting user-uploaded photos
+    if (initialPhotos.some(p => p.id === id)) {
+      console.log('Cannot delete initial photos');
+      return;
+    }
     
-    // Update localStorage
-    const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
-    localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
+    try {
+      // Delete from JSONBin via cloudinaryApi
+      console.log('Deleting photo from JSONBin:', id);
+      const success = await deletePhoto(id);
+      
+      if (success) {
+        console.log('Photo deleted successfully from JSONBin');
+        // Update local state
+        const updatedPhotos = photos.filter(photo => photo.id !== id);
+        setPhotos(updatedPhotos);
+      } else {
+        console.error('Failed to delete photo from JSONBin');
+        alert('There was an error deleting your photo. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      alert('There was an error deleting your photo. Please try again.');
+    }
   };
 
   // Handle form submission

@@ -22,17 +22,9 @@ const headers = {
   'X-Bin-Versioning': 'false',
 };
 
-// Determine if we should use JSONBin or localStorage
-// In development, we'll use localStorage by default to avoid hitting JSONBin rate limits
-// In production, we'll use JSONBin with localStorage as fallback
-
-// Check if we're in production based on URL
-// This works for both Vite dev server and production builds
-const isProduction = typeof window !== 'undefined' && 
-  (window.location.hostname !== 'localhost' && 
-   !window.location.hostname.includes('127.0.0.1'));
-
-const useLocalStorage = !isProduction; // Use localStorage in dev, JSONBin in production
+// Always use JSONBin with localStorage as fallback
+// This ensures cross-browser persistence in all environments
+const useLocalStorage = false; // Always try JSONBin first
 
 /**
  * Get messages from localStorage
@@ -65,7 +57,7 @@ const saveLocalMessages = (messages: Message[]): void => {
  * @returns {Promise<Message[]>} Array of messages
  */
 export const fetchMessages = async (): Promise<Message[]> => {
-  console.log(`Environment: ${isProduction ? 'Production' : 'Development'}, Using localStorage: ${useLocalStorage}`);
+  console.log(`Using JSONBin with localStorage fallback: ${!useLocalStorage}`);
   
   // If using localStorage only, return local messages
   if (useLocalStorage) {
@@ -116,7 +108,7 @@ export const fetchMessages = async (): Promise<Message[]> => {
 export const saveMessages = async (messages: Message[]): Promise<boolean> => {
   // Always save to localStorage for reliability
   saveLocalMessages(messages);
-  console.log(`Environment: ${isProduction ? 'Production' : 'Development'}, Using localStorage: ${useLocalStorage}`);
+  console.log(`Using JSONBin with localStorage fallback: ${!useLocalStorage}`);
   
   // If using localStorage only mode, don't attempt JSONBin save
   if (useLocalStorage) {
