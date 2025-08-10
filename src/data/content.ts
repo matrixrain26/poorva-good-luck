@@ -13,67 +13,67 @@ export const audioSrc = "/audio/chalte-chalte.mp3";
 export const photos = [
   {
     id: 4,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.16 (1).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.37.16_1_j19hkj.jpg",
     alt: "Poorva at a special moment",
     note: "Your smile brightens everyone's day. Keep smiling!"
   },
   {
     id: 5,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.16.jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817005/WhatsApp_Image_2025-08-09_at_23.37.16_dw5kn9.jpg",
     alt: "Poorva laughing",
     note: "Never lose that infectious laugh of yours!"
   },
   {
     id: 6,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.17 (1).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817005/WhatsApp_Image_2025-08-09_at_23.37.17_1_iwd7bx.jpg",
     alt: "Poorva at a celebration",
     note: "Here's to many more celebrations in your future!"
   },
   {
     id: 7,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.17.jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.37.17_w1xkuh.jpg",
     alt: "Poorva with friends",
     note: "Cherish these moments and create new ones on your journey!"
   },
   {
     id: 8,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.18 (1).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817005/WhatsApp_Image_2025-08-09_at_23.37.18_1_zxuccy.jpg",
     alt: "Poorva at an event",
     note: "Always ready for new adventures and experiences!"
   },
   {
     id: 9,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.37.18.jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817005/WhatsApp_Image_2025-08-09_at_23.37.18_r0hw10.jpg",
     alt: "Poorva celebrating",
     note: "Your enthusiasm is contagious. Keep that spirit alive!"
   },
   {
     id: 10,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.38.18.jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817006/WhatsApp_Image_2025-08-09_at_23.38.18_dr1jrf.jpg",
     alt: "Poorva at a gathering",
     note: "You bring joy to every gathering. You'll do the same abroad!"
   },
   {
     id: 11,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.38.19 (1).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_1_ds5q0v.jpg",
     alt: "Poorva smiling",
     note: "That smile can light up any room. Share it with the world!"
   },
   {
     id: 12,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.38.19 (2).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_2_wv41hi.jpg",
     alt: "Poorva with friends",
     note: "True friendships last despite oceans between them."
   },
   {
     id: 13,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.38.19 (3).jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_3_xi863e.jpg",
     alt: "Poorva outdoors",
     note: "May your MS journey be as beautiful as this moment."
   },
   {
     id: 14,
-    src: "/images/WhatsApp Image 2025-08-09 at 23.38.19.jpeg",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_l8wsmc.jpg",
     alt: "Poorva celebrating",
     note: "Here's to many more milestones and celebrations in your future!"
   }
