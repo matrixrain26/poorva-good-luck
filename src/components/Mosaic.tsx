@@ -4,6 +4,13 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { photos as initialPhotos } from '../data/content';
 
+// Declare Cloudinary types
+declare global {
+  interface Window {
+    cloudinary: any;
+  }
+}
+
 // Photo tile component with hover/focus overlay
 const PhotoTile = ({ 
   photo, 
@@ -120,19 +127,50 @@ const Mosaic = () => {
     };
   }, []);
 
-  // Handle file selection
+  // Open Cloudinary Upload Widget
+  const openCloudinaryWidget = () => {
+    // Create and open the Cloudinary Upload Widget
+    const uploadWidget = window.cloudinary.createUploadWidget(
+      {
+        cloudName: 'dn29d1f9i',
+        uploadPreset: 'poorva_memories', // Create this preset in your Cloudinary dashboard (unsigned)
+        folder: 'user_memories', // Store in a specific folder
+        sources: ['local', 'camera', 'url'],
+        multiple: false,
+        styles: {
+          palette: {
+            window: '#1e1e1e',
+            windowBorder: '#4b5563',
+            tabIcon: '#8b5cf6',
+            menuIcons: '#8b5cf6',
+            textDark: '#f9fafb',
+            textLight: '#1e1e1e',
+            link: '#8b5cf6',
+            action: '#8b5cf6',
+            inactiveTabIcon: '#6b7280',
+            error: '#ef4444',
+            inProgress: '#8b5cf6',
+            complete: '#10b981',
+            sourceBg: '#2d3748'
+          }
+        }
+      },
+      (error: any, result: any) => {
+        if (!error && result && result.event === 'success') {
+          // On successful upload
+          setSelectedFile({ name: result.info.original_filename } as File);
+          setPreviewUrl(result.info.secure_url);
+        }
+      }
+    );
+    
+    uploadWidget.open();
+  };
+  
+  // Handle file selection (now just opens Cloudinary widget)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    e.preventDefault();
+    openCloudinaryWidget();
   };
 
   // Handle photo deletion
@@ -151,10 +189,10 @@ const Mosaic = () => {
     e.preventDefault();
     
     if (selectedFile && previewUrl && photoCaption && photoAlt) {
-      // Create new photo object
+      // Create new photo object with Cloudinary URL
       const newPhoto: Photo = {
         id: Date.now(), // Use timestamp as unique ID
-        src: previewUrl,
+        src: previewUrl, // This is now a Cloudinary URL
         alt: photoAlt,
         note: photoCaption
       };
@@ -164,6 +202,8 @@ const Mosaic = () => {
       setPhotos(updatedPhotos);
       
       // Save user photos to localStorage
+      // We still save to localStorage for persistence between sessions
+      // but now the src URLs point to Cloudinary instead of local data URLs
       const userPhotos = updatedPhotos.filter(photo => !initialPhotos.some(p => p.id === photo.id));
       localStorage.setItem('userPhotos', JSON.stringify(userPhotos));
       
@@ -212,7 +252,7 @@ const Mosaic = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={openCloudinaryWidget}
                     className="w-full h-40 border-2 border-dashed border-zinc-600 rounded-lg flex flex-col items-center justify-center hover:border-indigo-500 transition-colors"
                     aria-label="Click to select a photo"
                   >
