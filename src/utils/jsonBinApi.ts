@@ -22,8 +22,17 @@ const headers = {
   'X-Bin-Versioning': 'false',
 };
 
-// Fallback to localStorage if JSONBin fails
-const useLocalStorage = true; // Set to true to always use localStorage as backup
+// Determine if we should use JSONBin or localStorage
+// In development, we'll use localStorage by default to avoid hitting JSONBin rate limits
+// In production, we'll use JSONBin with localStorage as fallback
+
+// Check if we're in production based on URL
+// This works for both Vite dev server and production builds
+const isProduction = typeof window !== 'undefined' && 
+  (window.location.hostname !== 'localhost' && 
+   !window.location.hostname.includes('127.0.0.1'));
+
+const useLocalStorage = !isProduction; // Use localStorage in dev, JSONBin in production
 
 /**
  * Get messages from localStorage
@@ -56,6 +65,8 @@ const saveLocalMessages = (messages: Message[]): void => {
  * @returns {Promise<Message[]>} Array of messages
  */
 export const fetchMessages = async (): Promise<Message[]> => {
+  console.log(`Environment: ${isProduction ? 'Production' : 'Development'}, Using localStorage: ${useLocalStorage}`);
+  
   // If using localStorage only, return local messages
   if (useLocalStorage) {
     const localMessages = getLocalMessages();
@@ -65,18 +76,25 @@ export const fetchMessages = async (): Promise<Message[]> => {
   
   try {
     console.log('Fetching messages from JSONBin...');
+    console.log('API URL:', API_URL);
+    
     const response = await fetch(API_URL, { 
       headers,
       method: 'GET',
-      mode: 'cors'
+      mode: 'cors',
+      credentials: 'omit' // Don't send cookies to avoid CORS issues
     });
     
     if (!response.ok) {
+      console.error(`JSONBin API error: ${response.status} ${response.statusText}`);
       throw new Error(`JSONBin API error: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log('JSONBin response:', data);
+    
     const messages = data.record || [];
+    console.log('Parsed messages:', messages);
     
     // Cache messages in localStorage as backup
     saveLocalMessages(messages);
@@ -84,7 +102,9 @@ export const fetchMessages = async (): Promise<Message[]> => {
   } catch (error) {
     console.error('Error fetching messages from JSONBin:', error);
     // Fall back to localStorage if JSONBin fails
-    return getLocalMessages();
+    const localMessages = getLocalMessages();
+    console.log('Falling back to localStorage messages:', localMessages);
+    return localMessages;
   }
 };
 
@@ -96,6 +116,7 @@ export const fetchMessages = async (): Promise<Message[]> => {
 export const saveMessages = async (messages: Message[]): Promise<boolean> => {
   // Always save to localStorage for reliability
   saveLocalMessages(messages);
+  console.log(`Environment: ${isProduction ? 'Production' : 'Development'}, Using localStorage: ${useLocalStorage}`);
   
   // If using localStorage only mode, don't attempt JSONBin save
   if (useLocalStorage) {
@@ -105,22 +126,31 @@ export const saveMessages = async (messages: Message[]): Promise<boolean> => {
   
   try {
     console.log('Saving messages to JSONBin...');
+    console.log('API URL:', API_URL);
+    console.log('Messages to save:', messages);
+    
     const response = await fetch(API_URL, {
       method: 'PUT',
       headers,
       body: JSON.stringify(messages),
-      mode: 'cors'
+      mode: 'cors',
+      credentials: 'omit' // Don't send cookies to avoid CORS issues
     });
     
     if (!response.ok) {
+      console.error(`JSONBin API error: ${response.status} ${response.statusText}`);
       throw new Error(`Failed to save messages: ${response.status}`);
     }
+    
+    const responseData = await response.json();
+    console.log('JSONBin save response:', responseData);
     
     console.log('Messages saved to JSONBin successfully');
     return true;
   } catch (error) {
     console.error('Error saving messages to JSONBin:', error);
     // Even if JSONBin fails, localStorage save was already attempted
+    console.log('Falling back to localStorage only');
     return true; // Return true since localStorage save succeeded
   }
 };
@@ -133,8 +163,11 @@ export const saveMessages = async (messages: Message[]): Promise<boolean> => {
  */
 export const addMessage = async (author: string, message: string): Promise<boolean> => {
   try {
+    console.log(`Adding new message from ${author}`);
+    
     // First fetch existing messages
     const existingMessages = await fetchMessages();
+    console.log('Existing messages count:', existingMessages.length);
     
     // Create new message
     const newMessage: Message = {
@@ -142,14 +175,35 @@ export const addMessage = async (author: string, message: string): Promise<boole
       author,
       message
     };
+    console.log('New message created:', newMessage);
     
     // Add new message to existing ones
     const updatedMessages = [...existingMessages, newMessage];
+    console.log('Updated messages count:', updatedMessages.length);
     
     // Save updated messages
-    return await saveMessages(updatedMessages);
+    const saveResult = await saveMessages(updatedMessages);
+    console.log('Save result:', saveResult ? 'Success' : 'Failed');
+    return saveResult;
   } catch (error) {
     console.error('Error adding message:', error);
-    return false;
+    
+    // Attempt to save to localStorage directly as last resort
+    try {
+      console.log('Attempting localStorage fallback for new message');
+      const localMessages = getLocalMessages();
+      const newMessage: Message = {
+        id: Date.now(),
+        author,
+        message
+      };
+      const updatedMessages = [...localMessages, newMessage];
+      saveLocalMessages(updatedMessages);
+      console.log('Message saved to localStorage successfully');
+      return true;
+    } catch (localError) {
+      console.error('Final localStorage fallback failed:', localError);
+      return false;
+    }
   }
 };
