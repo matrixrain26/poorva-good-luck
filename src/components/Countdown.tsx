@@ -90,10 +90,10 @@ const Confetti = ({ show }: { show: boolean }) => {
 // Time unit display component
 const TimeUnit = ({ value, label }: { value: number; label: string }) => (
   <div className="flex flex-col items-center">
-    <div className="text-3xl md:text-5xl font-bold bg-white/10 rounded-xl px-4 py-2 min-w-[80px] md:min-w-[120px]">
+    <div className="text-2xl md:text-5xl font-bold bg-white/10 rounded-xl px-2 md:px-4 py-2 min-w-[60px] md:min-w-[120px]">
       {value.toString().padStart(2, '0')}
     </div>
-    <div className="text-sm md:text-base mt-2 text-zinc-300" aria-label={label}>
+    <div className="text-xs md:text-base mt-1 md:mt-2 text-zinc-300" aria-label={label}>
       {label}
     </div>
   </div>
