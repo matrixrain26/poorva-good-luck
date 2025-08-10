@@ -12,14 +12,16 @@ export interface Message {
 const API_KEY = '$2a$10$Yd0Ql9Ot4Nh3Oc9Tn.Ij4.Oe9Yx6Oi7JE9D7KPmqkZXQVLm5ZDPu'; // Your JSONBin API key
 const BIN_ID = '65d4a8c5dc74654018a9e3c2'; // Pre-created bin ID for Poorva's farewell messages
 
-// API URL
+// API URL - using public endpoint to avoid CORS issues
 const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
 // Headers for API requests
 const headers = {
   'Content-Type': 'application/json',
   'X-Master-Key': API_KEY,
-  'X-Bin-Versioning': 'false'
+  'X-Bin-Versioning': 'false',
+  'X-Access-Key': API_KEY, // For public endpoints
+  'mode': 'cors'
 };
 
 /**

@@ -129,6 +129,13 @@ const Mosaic = () => {
 
   // Open Cloudinary Upload Widget
   const openCloudinaryWidget = () => {
+    // Check if Cloudinary is loaded
+    if (!window.cloudinary) {
+      console.error('Cloudinary widget not loaded');
+      alert('Image upload service is not available. Please try again later.');
+      return;
+    }
+    
     // Create and open the Cloudinary Upload Widget
     const uploadWidget = window.cloudinary.createUploadWidget(
       {
@@ -137,6 +144,9 @@ const Mosaic = () => {
         folder: 'user_memories', // Store in a specific folder
         sources: ['local', 'camera', 'url'],
         multiple: false,
+        cropping: false,
+        showAdvancedOptions: false,
+        maxFileSize: 5000000, // 5MB
         styles: {
           palette: {
             window: '#1e1e1e',
@@ -156,8 +166,15 @@ const Mosaic = () => {
         }
       },
       (error: any, result: any) => {
-        if (!error && result && result.event === 'success') {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          alert('There was an error uploading your image. Please try again.');
+          return;
+        }
+        
+        if (result && result.event === 'success') {
           // On successful upload
+          console.log('Cloudinary upload success:', result.info);
           setSelectedFile({ name: result.info.original_filename } as File);
           setPreviewUrl(result.info.secure_url);
         }

@@ -76,12 +76,24 @@ const AudioPlayer = () => {
     };
   }, [isPlaying]);
 
+  useEffect(() => {
+    // Initialize audio element when component mounts
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+      // Add error handling
+      audioRef.current.onerror = (e) => {
+        console.error('Audio playback error:', e);
+      };
+    }
+  }, []);
+
   return (
     <div>
       <audio 
         ref={audioRef} 
         src={audioSrc} 
         loop 
+        crossOrigin="anonymous"
         preload="auto"
         onEnded={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
