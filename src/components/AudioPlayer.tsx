@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { audioSrc, backupAudioSrc } from '../data/content';
+import { audioSrc, backupAudioSrc1, backupAudioSrc2 } from '../data/content';
 
 const AudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,7 +76,25 @@ const AudioPlayer = () => {
     };
   }, [isPlaying]);
 
+  // Track current audio source and index
   const [currentAudioSrc, setCurrentAudioSrc] = useState(audioSrc);
+  const [audioSourceIndex, setAudioSourceIndex] = useState(0);
+  
+  // All available audio sources in fallback order
+  const audioSources = [audioSrc, backupAudioSrc1, backupAudioSrc2];
+  
+  // Try next audio source in the fallback chain
+  const tryNextAudioSource = () => {
+    const nextIndex = audioSourceIndex + 1;
+    if (nextIndex < audioSources.length) {
+      console.log(`Trying audio source ${nextIndex}: ${audioSources[nextIndex]}`);
+      setAudioSourceIndex(nextIndex);
+      setCurrentAudioSrc(audioSources[nextIndex]);
+      return true;
+    }
+    console.error('All audio sources failed');
+    return false;
+  };
 
   // Initialize audio element when component mounts
   useEffect(() => {
@@ -85,16 +103,11 @@ const AudioPlayer = () => {
       
       // Add error handling
       audioRef.current.onerror = (e) => {
-        console.error('Audio playback error:', e);
-        
-        // Try backup source if main source fails
-        if (currentAudioSrc === audioSrc) {
-          console.log('Switching to backup audio source');
-          setCurrentAudioSrc(backupAudioSrc);
-        }
+        console.error(`Audio playback error with source ${audioSourceIndex}:`, e);
+        tryNextAudioSource();
       };
     }
-  }, [isMuted, volume, currentAudioSrc]);
+  }, [isMuted, volume, currentAudioSrc, audioSourceIndex]);
 
   return (
     <div>
@@ -109,9 +122,7 @@ const AudioPlayer = () => {
         onPause={() => setIsPlaying(false)}
         onError={() => {
           console.error('Audio error event triggered');
-          if (currentAudioSrc === audioSrc) {
-            setCurrentAudioSrc(backupAudioSrc);
-          }
+          tryNextAudioSource();
         }}
       />
       

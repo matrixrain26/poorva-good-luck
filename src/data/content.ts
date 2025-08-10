@@ -6,10 +6,15 @@ export const recipientName = "Poorva Bhide";
 // Homecoming date (ISO string format)
 export const homecomingDate = "2026-08-14T00:00:00";
 
-// Audio source - using direct public URL for maximum compatibility
-export const audioSrc = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
-// Backup audio source if the above doesn't work
-export const backupAudioSrc = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
+// Audio sources in priority order
+// 1. Local file in public directory (works in both dev and production if file exists)
+export const audioSrc = "/audio/chalte-chalte.mp3";
+// 2. Direct Google Drive URL (public link)
+export const backupAudioSrc1 = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
+// 3. Cloudinary hosted audio (may have CORS issues)
+export const backupAudioSrc2 = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754817004/chalte-chalte_ixwwzn.mp3";
+// Export backupAudioSrc for compatibility with existing code
+export const backupAudioSrc = backupAudioSrc1;
 
 // Photos with notes (inside jokes)
 export const photos = [
