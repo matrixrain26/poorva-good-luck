@@ -90,10 +90,10 @@ const Confetti = ({ show }: { show: boolean }) => {
 // Time unit display component
 const TimeUnit = ({ value, label }: { value: number; label: string }) => (
   <div className="flex flex-col items-center">
-    <div className="text-2xl md:text-5xl font-bold bg-white/10 rounded-xl px-2 md:px-4 py-2 min-w-[60px] md:min-w-[120px]">
+    <div className="text-lg sm:text-2xl md:text-5xl font-bold bg-white/10 rounded-xl px-1 sm:px-2 md:px-4 py-1 sm:py-2 min-w-[40px] sm:min-w-[60px] md:min-w-[120px] text-center">
       {value.toString().padStart(2, '0')}
     </div>
-    <div className="text-xs md:text-base mt-1 md:mt-2 text-zinc-300" aria-label={label}>
+    <div className="text-[10px] sm:text-xs md:text-base mt-1 md:mt-2 text-zinc-300" aria-label={label}>
       {label}
     </div>
   </div>
@@ -150,7 +150,7 @@ const Countdown = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="flex justify-center gap-4 md:gap-8"
+              className="flex flex-wrap justify-center gap-2 xs:gap-3 sm:gap-4 md:gap-8"
             >
               <TimeUnit value={days} label="Days" />
               <TimeUnit value={hours} label="Hours" />
