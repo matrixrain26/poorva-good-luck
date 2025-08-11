@@ -146,6 +146,9 @@ const AudioPlayer = () => {
         }, 1000);
       };
       
+      // Force load the audio element to ensure it picks up the sources
+      audioRef.current.load();
+      
       // Add loadstart handler
       audioRef.current.onloadstart = () => {
         console.log(`Audio loadstart event for source: ${currentAudioSrc}`);
