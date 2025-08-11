@@ -49,37 +49,37 @@ export const photos = [
     note: "Always ready for new adventures and experiences!"
   },
   {
-    id: 9,
+    id: "photo_9",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817005/WhatsApp_Image_2025-08-09_at_23.37.18_r0hw10.jpg",
     alt: "Poorva celebrating",
     note: "Your enthusiasm is contagious. Keep that spirit alive!"
   },
   {
-    id: 10,
+    id: "photo_10",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817006/WhatsApp_Image_2025-08-09_at_23.38.18_dr1jrf.jpg",
     alt: "Poorva at a gathering",
     note: "You bring joy to every gathering. You'll do the same abroad!"
   },
   {
-    id: 11,
+    id: "photo_11",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_1_ds5q0v.jpg",
     alt: "Poorva smiling",
     note: "That smile can light up any room. Share it with the world!"
   },
   {
-    id: 12,
+    id: "photo_12",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_2_wv41hi.jpg",
     alt: "Poorva with friends",
     note: "True friendships last despite oceans between them."
   },
   {
-    id: 13,
+    id: "photo_13",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_3_xi863e.jpg",
     alt: "Poorva outdoors",
     note: "May your MS journey be as beautiful as this moment."
   },
   {
-    id: 14,
+    id: "photo_14",
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1754817004/WhatsApp_Image_2025-08-09_at_23.38.19_l8wsmc.jpg",
     alt: "Poorva celebrating",
     note: "Here's to many more milestones and celebrations in your future!"
