@@ -8,11 +8,11 @@ export const homecomingDate = "2026-08-14T00:00:00";
 
 // Audio sources in priority order
 // 1. Cloudinary hosted audio (most reliable for production)
-export const audioSrc = "https://res.cloudinary.com/demo/video/upload/v1689333290/samples/sea-turtle.mp3";
+export const audioSrc = "https://res.cloudinary.com/dn29d1f9i/video/upload/v1754913849/redventdigitalmedia.co.za_-_Coldplay_-_Hymn_For_The_Weekend_Instrumental_320_KBps_m5h9dq.mp3";
 // 2. Local file in public directory (backup for local development)
 export const backupAudioSrc1 = "/Sounds/redventdigitalmedia.co.za - Coldplay - Hymn For The Weekend Instrumental (320 KBps).mp3";
-// 3. Alternative Cloudinary sample audio (in case primary fails)
-export const backupAudioSrc2 = "https://res.cloudinary.com/demo/video/upload/v1689333290/samples/cld-sample-video.mp4";
+// 3. Alternative local audio path (in case primary fails)
+export const backupAudioSrc2 = "/audio/coldplay-hymn-for-the-weekend.mp3";
 // Export backupAudioSrc for compatibility with existing code
 export const backupAudioSrc = audioSrc;
 
