@@ -29,10 +29,9 @@ const headers = {
   'X-Bin-Versioning': 'false',
 };
 
-// Default bin IDs - hardcoded for reliability across browsers
-// These are pre-created bins specifically for Poorva's farewell app
-const DEFAULT_MESSAGES_BIN_ID = '65d4a8c5dc74654018a9e3c3';
-const DEFAULT_PHOTOS_BIN_ID = '65d4a8c5dc74654018a9e3c3';
+// Default bin ID - hardcoded for reliability across browsers
+// This is a pre-created bin specifically for Poorva's farewell app
+const DEFAULT_BIN_ID = '65d4a8c5dc74654018a9e3c3';
 
 // LocalStorage keys - only used for offline fallback
 const LOCAL_MESSAGES_KEY = 'poorva_messages';
@@ -58,13 +57,9 @@ const saveLocalData = <T>(key: string, data: T): void => {
 };
 
 // Bin ID management
-const getBinId = (type: 'messages' | 'photos'): string => {
-  // Always use the default bin IDs for reliability across browsers
-  if (type === 'messages') {
-    return DEFAULT_MESSAGES_BIN_ID;
-  } else {
-    return DEFAULT_PHOTOS_BIN_ID;
-  }
+const getBinId = (_type: 'messages' | 'photos'): string => {
+  // Always use the same bin ID for both types
+  return DEFAULT_BIN_ID;
 };
 
 // No longer need to save bin IDs as they are hardcoded for reliability
@@ -120,21 +115,25 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
     }
     
     const data = await response.json();
-    if (DEBUG) console.log(`JSONBin ${type} response:`, data);
+    if (DEBUG) console.log(`JSONBin response for ${type}:`, data);
     
-    // Extract data from response - handle both array and object formats
+    // Extract data from response - handle structured format
     let jsonBinData;
     
     if (data && data.record) {
-      // Handle different response formats
-      if (Array.isArray(data.record)) {
-        // Direct array format
-        jsonBinData = data.record;
+      // Check if we have a structured format with both types
+      if (data.record.messages && data.record.photos) {
+        // Structured format with both types
+        jsonBinData = type === 'messages' ? data.record.messages : data.record.photos;
       } else if (data.record[type] && Array.isArray(data.record[type])) {
         // Object with type key format
         jsonBinData = data.record[type];
+      } else if (Array.isArray(data.record)) {
+        // Direct array format - legacy support
+        jsonBinData = data.record;
+        console.warn('Using legacy array format from JSONBin - should migrate to structured format');
       } else {
-        // Unknown format
+        // Unknown format - initialize empty arrays
         console.warn(`Unknown JSONBin data format for ${type}:`, data.record);
         jsonBinData = [];
       }
@@ -142,7 +141,7 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
       jsonBinData = [];
     }
     
-    if (DEBUG) console.log(`Parsed ${jsonBinData.length} items from JSONBin for ${type}`);
+    if (DEBUG) console.log(`Parsed ${jsonBinData?.length || 0} items from JSONBin for ${type}`);
     
     if (Array.isArray(jsonBinData) && jsonBinData.length > 0) {
       // Validate data before using it
@@ -211,15 +210,35 @@ const saveToJsonBin = async <T>(type: 'messages' | 'photos', data: T[]): Promise
     // Always use the default bin ID for reliability
     const binId = getBinId(type);
     
-    // Prepare data for JSONBin - use different formats based on what we're saving
-    let binData;
+    // First, get the current bin data to preserve the other type's data
+    const response = await fetch(`${BASE_API_URL}/b/${binId}`, {
+      method: 'GET',
+      headers,
+      mode: 'cors',
+      cache: 'no-cache',
+      credentials: 'omit'
+    });
     
-    // For direct array format (more reliable)
-    binData = data;
+    // Prepare structured data for JSONBin
+    let binData: any = {};
     
-    if (DEBUG) console.log(`Saving ${type} to JSONBin (${binId}):`, binData);
+    if (response.ok) {
+      const currentData = await response.json();
+      
+      if (currentData && currentData.record) {
+        // If we have existing structured data, preserve it
+        if (typeof currentData.record === 'object' && !Array.isArray(currentData.record)) {
+          binData = currentData.record;
+        }
+      }
+    }
     
-    // Update the bin with our data
+    // Update only the specific type's data in the structured format
+    binData[type] = data;
+    
+    if (DEBUG) console.log(`Saving ${type} to JSONBin (${binId}) with structured format:`, binData);
+    
+    // Update the bin with our structured data
     const updateResponse = await fetch(`${BASE_API_URL}/b/${binId}`, {
       method: 'PUT',
       headers,
