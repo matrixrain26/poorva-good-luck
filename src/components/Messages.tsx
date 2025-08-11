@@ -96,10 +96,33 @@ const Messages = () => {
     const loadMessagesFromJsonBin = async () => {
       setIsLoading(true);
       try {
+        console.log('Fetching messages from JSONBin...');
         const jsonBinMessages = await fetchMessages();
-        if (jsonBinMessages.length > 0) {
+        console.log(`Loaded ${jsonBinMessages.length} messages from JSONBin`);
+        
+        // Validate messages before using them
+        const validMessages = jsonBinMessages.filter(msg => {
+          const isValid = 
+            msg && 
+            typeof msg.id === 'number' && 
+            typeof msg.author === 'string' && 
+            typeof msg.message === 'string';
+            
+          if (!isValid) {
+            console.warn('Found invalid message:', msg);
+          }
+          return isValid;
+        });
+        
+        if (validMessages.length !== jsonBinMessages.length) {
+          console.warn(`Filtered out ${jsonBinMessages.length - validMessages.length} invalid messages`);
+        }
+        
+        if (validMessages.length > 0) {
           // Combine initial messages with JSONBin messages
-          setMessages([...initialMessages, ...jsonBinMessages]);
+          setMessages([...initialMessages, ...validMessages]);
+          // Also save to localStorage as backup
+          localStorage.setItem('guestMessages', JSON.stringify(validMessages));
         }
       } catch (error) {
         console.error('Error loading messages from JSONBin:', error);
@@ -107,6 +130,7 @@ const Messages = () => {
         try {
           const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
           if (savedMessages.length > 0) {
+            console.log(`Falling back to ${savedMessages.length} messages from localStorage`);
             setMessages([...initialMessages, ...savedMessages]);
           }
         } catch (localError) {
@@ -173,28 +197,41 @@ const Messages = () => {
     resetAutoPlay();
   };
 
-  // Save a new message
-  const saveMessage = async (author: string, message: string) => {
-    const newMessage = { id: Date.now(), author, message };
+  // Add a new message
+  const handleAddMessage = async (author: string, message: string) => {
+    if (!author.trim() || !message.trim()) return;
+    
+    const newMessage = {
+      id: Date.now(),
+      author,
+      message
+    };
+    
+    // Add to state
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     
-    // Show loading state if needed
-    setIsLoading(true);
-    
-    // Save to JSONBin
+    // Save to JSONBin first (most reliable for cross-browser persistence)
     try {
-      // Add message to JSONBin
+      console.log('Saving new message to JSONBin:', { author, message });
       const success = await addMessage(author, message);
       
-      if (!success) {
-        console.warn('Failed to save message to JSONBin, falling back to localStorage');
-        // Fallback to localStorage if JSONBin fails
-        const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
-        localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
+      if (success) {
+        console.log('Message saved successfully to JSONBin');
+      } else {
+        console.error('Failed to save message to JSONBin');
       }
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error('Error saving to JSONBin:', error);
+    }
+    
+    // Also save to localStorage as backup
+    try {
+      const userMessages = updatedMessages.filter(msg => !initialMessages.some(initial => initial.id === msg.id));
+      localStorage.setItem('guestMessages', JSON.stringify(userMessages));
+      console.log(`Saved ${userMessages.length} messages to localStorage as backup`);
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
       // Fallback to localStorage
       try {
         const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
@@ -312,7 +349,7 @@ const Messages = () => {
       <AddMessageDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
-        onSave={saveMessage}
+        onSave={handleAddMessage}
       />
     </div>
   );

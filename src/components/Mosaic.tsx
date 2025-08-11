@@ -133,11 +133,15 @@ const Mosaic = () => {
             photo && 
             typeof photo.id === 'string' && 
             typeof photo.src === 'string' && 
+            photo.src.includes('cloudinary.com') && // Ensure it's a Cloudinary URL
             typeof photo.alt === 'string' && 
             typeof photo.note === 'string';
             
           if (!isValid) {
             console.warn('Found invalid photo:', photo);
+            if (photo && !photo.src.includes('cloudinary.com')) {
+              console.warn('Skipping non-Cloudinary image for reliability');
+            }
           }
           return isValid;
         });

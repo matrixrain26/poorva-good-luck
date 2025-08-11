@@ -108,6 +108,9 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
     const response = await fetch(`${BASE_API_URL}/b/${binId}`, {
       method: 'GET',
       headers,
+      mode: 'cors',
+      cache: 'no-cache', // Always get fresh data
+      credentials: 'omit' // Don't send cookies to avoid CORS issues
     });
     
     if (!response.ok) {
@@ -126,13 +129,23 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
     const jsonBinData = data?.record?.[type] || [];
     
     if (Array.isArray(jsonBinData) && jsonBinData.length > 0) {
+      // Validate data before using it
+      const validData = type === 'photos' 
+        ? (jsonBinData as unknown as PhotoMemory[]).filter(photo => 
+            photo && 
+            typeof photo.id === 'string' && 
+            typeof photo.url === 'string' && 
+            photo.url.includes('cloudinary.com') // Ensure it's a Cloudinary URL
+          )
+        : jsonBinData;
+      
       // Save to localStorage for offline access
       if (type === 'messages') {
-        saveLocalMessages(jsonBinData as unknown as Message[]);
+        saveLocalMessages(validData as unknown as Message[]);
       } else {
-        saveLocalPhotos(jsonBinData as unknown as PhotoMemory[]);
+        saveLocalPhotos(validData as unknown as PhotoMemory[]);
       }
-      return jsonBinData;
+      return validData as T[];
     }
     
     // If JSONBin has no data, use localStorage
