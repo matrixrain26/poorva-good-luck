@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { audioSrc, backupAudioSrc1, backupAudioSrc2 } from '../data/content';
 
-// Define audio formats to try in order of preference
-const AUDIO_FORMATS = ['mp3', 'ogg', 'wav'];
+// Helper constants for audio handling
 
 // Helper function to check if we're in production
 const isProduction = typeof window !== 'undefined' && 
@@ -11,6 +10,7 @@ const isProduction = typeof window !== 'undefined' &&
    !window.location.hostname.includes('127.0.0.1'));
 
 console.log(`AudioPlayer initializing in ${isProduction ? 'production' : 'development'} environment`);
+console.log('Available audio sources:', { audioSrc, backupAudioSrc1, backupAudioSrc2 });
 
 const AudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -103,63 +103,23 @@ const AudioPlayer = () => {
   // Track current audio source and index
   const [currentAudioSrc, setCurrentAudioSrc] = useState(getInitialAudioSrc);
   const [audioSourceIndex, setAudioSourceIndex] = useState(0);
-  const [currentFormat, setCurrentFormat] = useState('mp3');
   const [audioLoadAttempts, setAudioLoadAttempts] = useState(0);
   
   // All available audio sources in fallback order
   const audioSources = [audioSrc, backupAudioSrc1, backupAudioSrc2];
-  
-  // Generate a source URL with format
-  const generateSourceUrl = (baseUrl: string, format: string) => {
-    // If the URL already has a format extension, replace it
-    if (/\.(mp3|ogg|wav)$/i.test(baseUrl)) {
-      return baseUrl.replace(/\.(mp3|ogg|wav)$/i, `.${format}`);
-    }
-    // Otherwise, add the format extension
-    return `${baseUrl}.${format}`;
-  };
   
   // Try next audio source in the fallback chain
   const tryNextAudioSource = () => {
     console.log(`Audio load attempt ${audioLoadAttempts + 1}`);
     setAudioLoadAttempts(prev => prev + 1);
     
-    // First try different formats of the same source
-    const currentFormatIndex = AUDIO_FORMATS.indexOf(currentFormat);
-    const nextFormatIndex = currentFormatIndex + 1;
+    // Simple approach: just cycle through available sources
+    const nextSourceIndex = (audioSourceIndex + 1) % audioSources.length;
+    console.log(`Trying next audio source ${nextSourceIndex}: ${audioSources[nextSourceIndex]}`);
+    setAudioSourceIndex(nextSourceIndex);
+    setCurrentAudioSrc(audioSources[nextSourceIndex]);
     
-    if (nextFormatIndex < AUDIO_FORMATS.length) {
-      // Try next format with same source
-      const nextFormat = AUDIO_FORMATS[nextFormatIndex];
-      console.log(`Trying format ${nextFormat} with source ${audioSourceIndex}: ${audioSources[audioSourceIndex]}`);
-      setCurrentFormat(nextFormat);
-      const newSrc = generateSourceUrl(audioSources[audioSourceIndex], nextFormat);
-      setCurrentAudioSrc(newSrc);
-      return true;
-    }
-    
-    // If all formats tried, move to next source
-    const nextSourceIndex = audioSourceIndex + 1;
-    if (nextSourceIndex < audioSources.length) {
-      console.log(`Trying audio source ${nextSourceIndex}: ${audioSources[nextSourceIndex]}`);
-      setAudioSourceIndex(nextSourceIndex);
-      setCurrentFormat(AUDIO_FORMATS[0]); // Reset format to first option
-      const newSrc = generateSourceUrl(audioSources[nextSourceIndex], AUDIO_FORMATS[0]);
-      setCurrentAudioSrc(newSrc);
-      return true;
-    }
-    
-    console.error('All audio sources and formats failed');
-    
-    // Last resort: try direct URLs without format manipulation
-    if (audioLoadAttempts < audioSources.length * 2) {
-      const lastResortIndex = audioLoadAttempts % audioSources.length;
-      console.log(`Last resort: trying direct URL for source ${lastResortIndex}`);
-      setCurrentAudioSrc(audioSources[lastResortIndex]);
-      return true;
-    }
-    
-    return false;
+    return true;
   };
 
   // Initialize audio element when component mounts
@@ -219,9 +179,7 @@ const AudioPlayer = () => {
     <div>
       <audio 
         ref={audioRef} 
-        src={currentAudioSrc} 
         loop 
-        crossOrigin="anonymous"
         preload="auto"
         onLoadStart={() => console.log(`Audio load started: ${currentAudioSrc}`)}
         onEnded={() => setIsPlaying(false)}
@@ -245,10 +203,9 @@ const AudioPlayer = () => {
           tryNextAudioSource();
         }}
       >
-        {/* Add source elements as fallbacks */}
         <source src={audioSrc} type="audio/mpeg" />
-        <source src={backupAudioSrc1} type="audio/mpeg" />
-        <source src={backupAudioSrc2} type="audio/mpeg" />
+        {backupAudioSrc1 && <source src={backupAudioSrc1} type="audio/mpeg" />}
+        {backupAudioSrc2 && <source src={backupAudioSrc2} type="audio/mpeg" />}
         Your browser does not support the audio element.
       </audio>
       

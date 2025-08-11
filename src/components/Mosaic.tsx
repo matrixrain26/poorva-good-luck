@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { photos as initialPhotos } from '../data/content';
-import { fetchPhotos, addPhoto, deletePhoto } from '../utils/cloudinaryApi';
+import { fetchPhotos, addPhoto, deletePhoto } from '../utils/jsonBinApi';
 
 // Declare Cloudinary types
 declare global {
@@ -20,7 +20,7 @@ const PhotoTile = ({
 }: { 
   photo: Photo; 
   isUserUploaded?: boolean; 
-  onDelete?: (id: number) => void;
+  onDelete?: (id: string) => void;
 }) => {
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const tileRef = useRef<HTMLDivElement>(null);
@@ -92,10 +92,11 @@ const PhotoTile = ({
 
 // Type for photos (both initial and user-uploaded)
 export interface Photo {
-  id: number;
+  id: string;
   src: string;
   alt: string;
   note: string;
+  timestamp?: number;
 };
 
 const Mosaic = () => {
@@ -114,14 +115,23 @@ const Mosaic = () => {
     const loadPhotos = async () => {
       try {
         // Fetch photos from JSONBin (with localStorage fallback)
-        const userPhotos = await fetchPhotos();
-        console.log(`Loaded ${userPhotos.length} user photos from JSONBin/localStorage`);
+        const jsonBinPhotos = await fetchPhotos();
+        console.log(`Loaded ${jsonBinPhotos.length} user photos from JSONBin/localStorage`);
+        
+        // Convert JSONBin PhotoMemory objects to our Photo format
+        const userPhotos = jsonBinPhotos.map(photo => ({
+          id: photo.id,
+          src: photo.url,
+          alt: photo.caption || 'User uploaded photo',
+          note: photo.caption || 'Memory with Poorva',
+          timestamp: photo.timestamp
+        }));
         
         // Validate user photos before using them
         const validUserPhotos = userPhotos.filter(photo => {
           const isValid = 
             photo && 
-            typeof photo.id === 'number' && 
+            typeof photo.id === 'string' && 
             typeof photo.src === 'string' && 
             typeof photo.alt === 'string' && 
             typeof photo.note === 'string';
@@ -267,20 +277,25 @@ const Mosaic = () => {
         
         // Add a slight delay before auto-submitting to ensure state updates
         setTimeout(async () => {
-          // Create and save the new photo directly
-          const newPhoto: Photo = {
-            id: Date.now(),
-            src: result.info.secure_url,
-            alt: photoAlt || result.info.original_filename || 'Photo memory with Poorva',
-            note: photoCaption || 'Memory with Poorva'
-          };
+          // Get photo details
+          const photoUrl = result.info.secure_url;
+          const caption = photoCaption || result.info.original_filename || 'Memory with Poorva';
           
-          console.log('Auto-creating new photo:', newPhoto);
+          console.log('Auto-creating new photo with URL:', photoUrl, 'and caption:', caption);
           
           try {
-            // Save to JSONBin via cloudinaryApi
-            console.log('Saving new photo to JSONBin:', newPhoto);
-            const success = await addPhoto(newPhoto);
+            // Save to JSONBin via jsonBinApi
+            console.log('Saving new photo to JSONBin');
+            const success = await addPhoto(photoUrl, caption);
+            
+            // Create a local photo object for state update
+            const newPhoto: Photo = {
+              id: `photo_${Date.now()}`,
+              src: photoUrl,
+              alt: photoAlt || result.info.original_filename || 'Photo memory with Poorva',
+              note: caption,
+              timestamp: Date.now()
+            };
             
             if (success) {
               console.log('Photo saved successfully to JSONBin');
@@ -377,7 +392,7 @@ const Mosaic = () => {
   };
 
   // Handle delete photo
-  const handleDeletePhoto = async (id: number) => {
+  const handleDeletePhoto = async (id: string) => {
     // Only allow deleting user-uploaded photos
     if (initialPhotos.some(p => p.id === id)) {
       console.log('Cannot delete initial photos');
@@ -385,22 +400,15 @@ const Mosaic = () => {
     }
     
     try {
-      // Delete from JSONBin via cloudinaryApi
-      console.log('Deleting photo from JSONBin:', id);
-      const success = await deletePhoto(id);
+      // Delete from JSONBin
+      await deletePhoto(id);
       
-      if (success) {
-        console.log('Photo deleted successfully from JSONBin');
-        // Update local state
-        const updatedPhotos = photos.filter(photo => photo.id !== id);
-        setPhotos(updatedPhotos);
-      } else {
-        console.error('Failed to delete photo from JSONBin');
-        alert('There was an error deleting your photo. Please try again.');
-      }
+      // Update local state
+      setPhotos(photos.filter(photo => photo.id !== id));
+      console.log(`Photo with ID ${id} deleted successfully`);
     } catch (error) {
-      console.error('Error deleting photo:', error);
-      alert('There was an error deleting your photo. Please try again.');
+      console.error(`Error deleting photo with ID ${id}:`, error);
+      alert('Failed to delete photo. Please try again.');
     }
   };
 
@@ -415,10 +423,11 @@ const Mosaic = () => {
         
         // Create new photo object with Cloudinary URL
         const newPhoto: Photo = {
-          id: Date.now(), // Use timestamp as unique ID
+          id: `photo_${Date.now()}`, // Use timestamp as unique ID with string prefix
           src: previewUrl, // This is now a Cloudinary URL
           alt: photoAlt,
-          note: photoCaption
+          note: photoCaption,
+          timestamp: Date.now()
         };
         
         console.log('New photo object created:', newPhoto);

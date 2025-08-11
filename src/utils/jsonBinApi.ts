@@ -8,12 +8,19 @@ export interface Message {
   message: string;
 }
 
+export interface PhotoMemory {
+  id: string;
+  url: string;
+  caption: string;
+  timestamp: number;
+}
+
 // Constants
 const API_KEY = '$2a$10$Yd0Ql9Ot4Nh3Oc9Tn.Ij4.Oe9Yx6Oi7JE9D7KPmqkZXQVLm5ZDPu'; // Your JSONBin API key
-const BIN_ID = '65d4a8c5dc74654018a9e3c2'; // Pre-created bin ID for Poorva's farewell messages
+const BASE_API_URL = 'https://api.jsonbin.io/v3';
 
-// API URL - using public endpoint to avoid CORS issues
-const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+// Debug flag - set to true to see detailed logs
+const DEBUG = true;
 
 // Headers for API requests
 const headers = {
@@ -22,33 +29,182 @@ const headers = {
   'X-Bin-Versioning': 'false',
 };
 
-// Always use JSONBin with localStorage as fallback
-// This ensures cross-browser persistence in all environments
-const useLocalStorage = false; // Always try JSONBin first
+// LocalStorage keys
+const MESSAGES_BIN_ID_KEY = 'poorva_messages_bin_id';
+const PHOTOS_BIN_ID_KEY = 'poorva_photos_bin_id';
+const LOCAL_MESSAGES_KEY = 'poorva_messages';
+const LOCAL_PHOTOS_KEY = 'poorva_photos';
+
+// Helper functions for localStorage
+const getLocalData = <T>(key: string, defaultValue: T): T => {
+  try {
+    const storedData = localStorage.getItem(key);
+    return storedData ? JSON.parse(storedData) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+};
+
+const saveLocalData = <T>(key: string, data: T): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
+
+// Bin ID management
+const getBinId = (type: 'messages' | 'photos'): string | null => {
+  const key = type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY;
+  return localStorage.getItem(key);
+};
+
+const saveBinId = (type: 'messages' | 'photos', binId: string): void => {
+  const key = type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY;
+  localStorage.setItem(key, binId);
+};
+
+// Message specific helpers
+const getLocalMessages = (): Message[] => {
+  return getLocalData<Message[]>(LOCAL_MESSAGES_KEY, []);
+};
+
+const saveLocalMessages = (messages: Message[]): void => {
+  saveLocalData(LOCAL_MESSAGES_KEY, messages);
+};
+
+// Photo specific helpers
+const getLocalPhotos = (): PhotoMemory[] => {
+  return getLocalData<PhotoMemory[]>(LOCAL_PHOTOS_KEY, []);
+};
+
+const saveLocalPhotos = (photos: PhotoMemory[]): void => {
+  saveLocalData(LOCAL_PHOTOS_KEY, photos);
+};
 
 /**
- * Get messages from localStorage
- * @returns {Message[]} Array of messages
+ * Fetch data from JSONBin with localStorage fallback
+ * @param type Type of data to fetch ('messages' or 'photos')
+ * @returns Promise with data array
  */
-const getLocalMessages = (): Message[] => {
+const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> => {
+  // Get local data as fallback
+  const localData = type === 'messages' 
+    ? getLocalMessages() as unknown as T[]
+    : getLocalPhotos() as unknown as T[];
+  
+  // Check if we have a bin ID
+  const binId = getBinId(type);
+  if (!binId) {
+    if (DEBUG) console.log(`No JSONBin ID found for ${type}, using localStorage only`);
+    return localData;
+  }
+  
   try {
-    const storedMessages = localStorage.getItem('poorva_messages');
-    return storedMessages ? JSON.parse(storedMessages) : [];
+    // Try to fetch from JSONBin
+    if (DEBUG) console.log(`Fetching ${type} from JSONBin ID: ${binId}...`);
+    
+    const response = await fetch(`${BASE_API_URL}/b/${binId}`, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!response.ok) {
+      console.error(`JSONBin API error for ${type}:`, response.status);
+      // If bin not found, clear the stored bin ID
+      if (response.status === 404) {
+        localStorage.removeItem(type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY);
+      }
+      return localData; // Fall back to localStorage
+    }
+    
+    const data = await response.json();
+    if (DEBUG) console.log(`JSONBin ${type} response:`, data);
+    
+    // Extract data from response
+    const jsonBinData = data?.record?.[type] || [];
+    
+    if (Array.isArray(jsonBinData) && jsonBinData.length > 0) {
+      // Save to localStorage for offline access
+      if (type === 'messages') {
+        saveLocalMessages(jsonBinData as unknown as Message[]);
+      } else {
+        saveLocalPhotos(jsonBinData as unknown as PhotoMemory[]);
+      }
+      return jsonBinData;
+    }
+    
+    // If JSONBin has no data, use localStorage
+    return localData;
   } catch (error) {
-    console.error('Error reading from localStorage:', error);
-    return [];
+    console.error(`Error fetching ${type} from JSONBin:`, error);
+    return localData; // Fall back to localStorage
   }
 };
 
 /**
- * Save messages to localStorage
- * @param {Message[]} messages Array of messages to save
+ * Save data to JSONBin and localStorage
+ * @param type Type of data to save ('messages' or 'photos')
+ * @param data Data array to save
+ * @returns Promise with success status
  */
-const saveLocalMessages = (messages: Message[]): void => {
+const saveToJsonBin = async <T>(type: 'messages' | 'photos', data: T[]): Promise<boolean> => {
+  if (DEBUG) console.log(`Saving ${type} to JSONBin and localStorage`);
+  
+  // Always save to localStorage first as a backup
+  if (type === 'messages') {
+    saveLocalMessages(data as unknown as Message[]);
+  } else {
+    saveLocalPhotos(data as unknown as PhotoMemory[]);
+  }
+  
   try {
-    localStorage.setItem('poorva_messages', JSON.stringify(messages));
+    const binId = getBinId(type);
+    let url = BASE_API_URL;
+    let method = 'POST';
+    let body = JSON.stringify({ [type]: data });
+    
+    if (binId) {
+      // Update existing bin
+      url = `${BASE_API_URL}/b/${binId}`;
+      method = 'PUT';
+      if (DEBUG) console.log(`Updating existing ${type} bin: ${binId}`);
+    } else {
+      // Create new bin
+      url = `${BASE_API_URL}/b`;
+      method = 'POST';
+      if (DEBUG) console.log(`Creating new bin for ${type}`);
+    }
+    
+    // Save to JSONBin
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+      mode: 'cors',
+      cache: 'no-cache',
+      credentials: 'omit' // Don't send cookies to avoid CORS issues
+    });
+    
+    if (!response.ok) {
+      console.error(`JSONBin API error for ${type}: ${response.status} ${response.statusText}`);
+      throw new Error(`JSONBin API error: ${response.status}`);
+    }
+    
+    const responseData = await response.json();
+    if (DEBUG) console.log(`JSONBin ${type} save response:`, responseData);
+    
+    // If we created a new bin, save the bin ID
+    if (!binId && responseData.metadata && responseData.metadata.id) {
+      saveBinId(type, responseData.metadata.id);
+      if (DEBUG) console.log(`New ${type} bin created with ID: ${responseData.metadata.id}`);
+    }
+    
+    return true;
   } catch (error) {
-    console.error('Error saving to localStorage:', error);
+    console.error(`Error saving ${type} to JSONBin:`, error);
+    return false;
   }
 };
 
@@ -57,47 +213,7 @@ const saveLocalMessages = (messages: Message[]): void => {
  * @returns {Promise<Message[]>} Array of messages
  */
 export const fetchMessages = async (): Promise<Message[]> => {
-  console.log(`Using JSONBin with localStorage fallback: ${!useLocalStorage}`);
-  
-  // If using localStorage only, return local messages
-  if (useLocalStorage) {
-    const localMessages = getLocalMessages();
-    console.log('Using localStorage messages:', localMessages);
-    return localMessages;
-  }
-  
-  try {
-    console.log('Fetching messages from JSONBin...');
-    console.log('API URL:', API_URL);
-    
-    const response = await fetch(API_URL, { 
-      headers,
-      method: 'GET',
-      mode: 'cors',
-      credentials: 'omit' // Don't send cookies to avoid CORS issues
-    });
-    
-    if (!response.ok) {
-      console.error(`JSONBin API error: ${response.status} ${response.statusText}`);
-      throw new Error(`JSONBin API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('JSONBin response:', data);
-    
-    const messages = data.record || [];
-    console.log('Parsed messages:', messages);
-    
-    // Cache messages in localStorage as backup
-    saveLocalMessages(messages);
-    return messages;
-  } catch (error) {
-    console.error('Error fetching messages from JSONBin:', error);
-    // Fall back to localStorage if JSONBin fails
-    const localMessages = getLocalMessages();
-    console.log('Falling back to localStorage messages:', localMessages);
-    return localMessages;
-  }
+  return fetchFromJsonBin('messages');
 };
 
 /**
@@ -106,45 +222,7 @@ export const fetchMessages = async (): Promise<Message[]> => {
  * @returns {Promise<boolean>} Success status
  */
 export const saveMessages = async (messages: Message[]): Promise<boolean> => {
-  // Always save to localStorage for reliability
-  saveLocalMessages(messages);
-  console.log(`Using JSONBin with localStorage fallback: ${!useLocalStorage}`);
-  
-  // If using localStorage only mode, don't attempt JSONBin save
-  if (useLocalStorage) {
-    console.log('Saving messages to localStorage only');
-    return true;
-  }
-  
-  try {
-    console.log('Saving messages to JSONBin...');
-    console.log('API URL:', API_URL);
-    console.log('Messages to save:', messages);
-    
-    const response = await fetch(API_URL, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(messages),
-      mode: 'cors',
-      credentials: 'omit' // Don't send cookies to avoid CORS issues
-    });
-    
-    if (!response.ok) {
-      console.error(`JSONBin API error: ${response.status} ${response.statusText}`);
-      throw new Error(`Failed to save messages: ${response.status}`);
-    }
-    
-    const responseData = await response.json();
-    console.log('JSONBin save response:', responseData);
-    
-    console.log('Messages saved to JSONBin successfully');
-    return true;
-  } catch (error) {
-    console.error('Error saving messages to JSONBin:', error);
-    // Even if JSONBin fails, localStorage save was already attempted
-    console.log('Falling back to localStorage only');
-    return true; // Return true since localStorage save succeeded
-  }
+  return saveToJsonBin('messages', messages);
 };
 
 /**
@@ -154,48 +232,108 @@ export const saveMessages = async (messages: Message[]): Promise<boolean> => {
  * @returns Promise with success status
  */
 export const addMessage = async (author: string, message: string): Promise<boolean> => {
+  if (!author || !message) {
+    console.error('Invalid message data:', { author, message });
+    return false;
+  }
+  
   try {
-    console.log(`Adding new message from ${author}`);
-    
-    // First fetch existing messages
+    // Get existing messages
     const existingMessages = await fetchMessages();
-    console.log('Existing messages count:', existingMessages.length);
     
     // Create new message
     const newMessage: Message = {
-      id: Date.now(),
+      id: Date.now(), // Use timestamp as ID
       author,
       message
     };
-    console.log('New message created:', newMessage);
     
-    // Add new message to existing ones
+    // Add to messages array
     const updatedMessages = [...existingMessages, newMessage];
-    console.log('Updated messages count:', updatedMessages.length);
     
     // Save updated messages
-    const saveResult = await saveMessages(updatedMessages);
-    console.log('Save result:', saveResult ? 'Success' : 'Failed');
-    return saveResult;
+    return await saveMessages(updatedMessages);
   } catch (error) {
     console.error('Error adding message:', error);
+    return false;
+  }
+};
+
+/**
+ * Fetch photos from JSONBin with localStorage fallback
+ * @returns {Promise<PhotoMemory[]>} Array of photos
+ */
+export const fetchPhotos = async (): Promise<PhotoMemory[]> => {
+  return fetchFromJsonBin<PhotoMemory>('photos');
+};
+
+/**
+ * Save photos to JSONBin and localStorage
+ * @param {PhotoMemory[]} photos Array of photos to save
+ * @returns {Promise<boolean>} Success status
+ */
+export const savePhotos = async (photos: PhotoMemory[]): Promise<boolean> => {
+  return saveToJsonBin('photos', photos);
+};
+
+/**
+ * Add a new photo memory to JSONBin
+ * @param url Photo URL (Cloudinary)
+ * @param caption Photo caption
+ * @returns Promise with success status
+ */
+export const addPhoto = async (url: string, caption: string): Promise<boolean> => {
+  if (!url) {
+    console.error('Invalid photo data: missing URL');
+    return false;
+  }
+  
+  try {
+    // Get existing photos
+    const existingPhotos = await fetchPhotos();
     
-    // Attempt to save to localStorage directly as last resort
-    try {
-      console.log('Attempting localStorage fallback for new message');
-      const localMessages = getLocalMessages();
-      const newMessage: Message = {
-        id: Date.now(),
-        author,
-        message
-      };
-      const updatedMessages = [...localMessages, newMessage];
-      saveLocalMessages(updatedMessages);
-      console.log('Message saved to localStorage successfully');
-      return true;
-    } catch (localError) {
-      console.error('Final localStorage fallback failed:', localError);
+    // Create new photo memory
+    const newPhoto: PhotoMemory = {
+      id: `photo_${Date.now()}`, // Use timestamp as ID with prefix
+      url,
+      caption: caption || '',
+      timestamp: Date.now()
+    };
+    
+    // Add to photos array
+    const updatedPhotos = [...existingPhotos, newPhoto];
+    
+    // Save updated photos
+    return await savePhotos(updatedPhotos);
+  } catch (error) {
+    console.error('Error adding photo:', error);
+    return false;
+  }
+};
+
+/**
+ * Delete a photo by ID
+ * @param id Photo ID to delete
+ * @returns Promise with success status
+ */
+export const deletePhoto = async (id: string): Promise<boolean> => {
+  try {
+    // Get existing photos
+    const existingPhotos = await fetchPhotos();
+    
+    // Filter out the photo to delete
+    const updatedPhotos = existingPhotos.filter(photo => photo.id !== id);
+    
+    // If no photos were removed, return false
+    if (updatedPhotos.length === existingPhotos.length) {
+      console.error(`Photo with ID ${id} not found`);
       return false;
     }
+    
+    // Save updated photos
+    return await savePhotos(updatedPhotos);
+  } catch (error) {
+    console.error(`Error deleting photo with ID ${id}:`, error);
+    return false;
   }
 };
