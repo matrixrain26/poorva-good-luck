@@ -114,9 +114,23 @@ const Mosaic = () => {
     
     const loadPhotos = async () => {
       try {
-        // Fetch photos from JSONBin (with localStorage fallback)
-        const jsonBinPhotos = await fetchPhotos();
-        console.log(`Loaded ${jsonBinPhotos.length} user photos from JSONBin/localStorage`);
+        // Attempt to fetch from JSONBin with multiple retries
+        let retries = 0;
+        let jsonBinPhotos: any[] = [];
+        
+        while (retries < 3) {
+          try {
+            // Fetch photos from JSONBin (with localStorage fallback)
+            jsonBinPhotos = await fetchPhotos();
+            console.log(`Loaded ${jsonBinPhotos.length} user photos from JSONBin on attempt ${retries + 1}`);
+            break; // Success, exit retry loop
+          } catch (fetchError) {
+            retries++;
+            console.warn(`JSONBin fetch attempt ${retries} failed:`, fetchError);
+            if (retries >= 3) throw fetchError; // Re-throw after max retries
+            await new Promise(r => setTimeout(r, 1000)); // Wait before retry
+          }
+        }
         
         // Convert JSONBin PhotoMemory objects to our Photo format
         const userPhotos = jsonBinPhotos.map(photo => ({
@@ -150,10 +164,16 @@ const Mosaic = () => {
           console.warn(`Filtered out ${userPhotos.length - validUserPhotos.length} invalid photos`);
         }
         
-        // Combine initial photos with user photos
-        setPhotos([...initialPhotos, ...validUserPhotos]);
+        if (validUserPhotos.length > 0) {
+          console.log(`Successfully loaded and processed ${validUserPhotos.length} photos from JSONBin`);
+          // Combine initial photos with user photos
+          setPhotos([...initialPhotos, ...validUserPhotos]);
+        } else {
+          console.log('No valid user photos found in JSONBin');
+          setPhotos(initialPhotos);
+        }
       } catch (error) {
-        console.error('Error loading photos:', error);
+        console.error('Error loading photos after retries:', error);
         // Fallback to initial photos only if everything fails
         setPhotos(initialPhotos);
       }
@@ -288,13 +308,16 @@ const Mosaic = () => {
           console.log('Auto-creating new photo with URL:', photoUrl, 'and caption:', caption);
           
           try {
+            // Generate a unique ID for the photo
+            const uniqueId = `photo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            
             // Save to JSONBin via jsonBinApi
             console.log('Saving new photo to JSONBin');
             const success = await addPhoto(photoUrl, caption);
             
             // Create a local photo object for state update
             const newPhoto: Photo = {
-              id: `photo_${Date.now()}`,
+              id: uniqueId,
               src: photoUrl,
               alt: photoAlt || result.info.original_filename || 'Photo memory with Poorva',
               note: caption,
@@ -303,14 +326,61 @@ const Mosaic = () => {
             
             if (success) {
               console.log('Photo saved successfully to JSONBin');
-              // Add to local state
-              const updatedPhotos = [...photos, newPhoto];
-              setPhotos(updatedPhotos);
+              
+              // After successful JSONBin save, refresh photos from JSONBin
+              // This ensures we have the latest shared data
+              try {
+                console.log('Refreshing photos from JSONBin after successful save');
+                const jsonBinPhotos = await fetchPhotos();
+                
+                // Convert JSONBin PhotoMemory objects to our Photo format
+                const userPhotos = jsonBinPhotos.map(photo => ({
+                  id: photo.id,
+                  src: photo.url,
+                  alt: photo.caption || 'User uploaded photo',
+                  note: photo.caption || 'Memory with Poorva',
+                  timestamp: photo.timestamp
+                }));
+                
+                // Validate user photos before using them
+                const validUserPhotos = userPhotos.filter(photo => {
+                  const isValid = 
+                    photo && 
+                    typeof photo.id === 'string' && 
+                    typeof photo.src === 'string' && 
+                    photo.src.includes('cloudinary.com') && // Ensure it's a Cloudinary URL
+                    typeof photo.alt === 'string' && 
+                    typeof photo.note === 'string';
+                    
+                  return isValid;
+                });
+                
+                // Combine initial photos with user photos
+                setPhotos([...initialPhotos, ...validUserPhotos]);
+              } catch (refreshError) {
+                console.error('Error refreshing photos from JSONBin:', refreshError);
+                // Still add the new photo to local state if refresh fails
+                const updatedPhotos = [...photos, newPhoto];
+                setPhotos(updatedPhotos);
+              }
             } else {
               console.error('Failed to save photo to JSONBin');
+              // Still add to local state even if JSONBin fails
+              const updatedPhotos = [...photos, newPhoto];
+              setPhotos(updatedPhotos);
             }
           } catch (saveError) {
             console.error('Error saving to JSONBin after upload:', saveError);
+            // Still add to local state even if JSONBin fails completely
+            const newPhoto: Photo = {
+              id: `photo_${Date.now()}_fallback`,
+              src: photoUrl,
+              alt: photoAlt || result.info.original_filename || 'Photo memory with Poorva',
+              note: caption,
+              timestamp: Date.now()
+            };
+            const updatedPhotos = [...photos, newPhoto];
+            setPhotos(updatedPhotos);
           }
           
           // Reset form and close dialog

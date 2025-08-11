@@ -97,8 +97,22 @@ const Messages = () => {
       setIsLoading(true);
       try {
         console.log('Fetching messages from JSONBin...');
-        const jsonBinMessages = await fetchMessages();
-        console.log(`Loaded ${jsonBinMessages.length} messages from JSONBin`);
+        // Attempt to fetch from JSONBin with multiple retries
+        let retries = 0;
+        let jsonBinMessages: MessageType[] = [];
+        
+        while (retries < 3) {
+          try {
+            jsonBinMessages = await fetchMessages();
+            console.log(`Loaded ${jsonBinMessages.length} messages from JSONBin on attempt ${retries + 1}`);
+            break; // Success, exit retry loop
+          } catch (fetchError) {
+            retries++;
+            console.warn(`JSONBin fetch attempt ${retries} failed:`, fetchError);
+            if (retries >= 3) throw fetchError; // Re-throw after max retries
+            await new Promise(r => setTimeout(r, 1000)); // Wait before retry
+          }
+        }
         
         // Validate messages before using them
         const validMessages = jsonBinMessages.filter(msg => {
@@ -106,7 +120,9 @@ const Messages = () => {
             msg && 
             typeof msg.id === 'number' && 
             typeof msg.author === 'string' && 
-            typeof msg.message === 'string';
+            typeof msg.message === 'string' && 
+            msg.author.trim() !== '' && 
+            msg.message.trim() !== '';
             
           if (!isValid) {
             console.warn('Found invalid message:', msg);
@@ -119,19 +135,39 @@ const Messages = () => {
         }
         
         if (validMessages.length > 0) {
+          // Sort messages by ID (timestamp) for consistency
+          const sortedMessages = [...validMessages].sort((a, b) => a.id - b.id);
+          
           // Combine initial messages with JSONBin messages
-          setMessages([...initialMessages, ...validMessages]);
+          setMessages([...initialMessages, ...sortedMessages]);
           // Also save to localStorage as backup
-          localStorage.setItem('guestMessages', JSON.stringify(validMessages));
+          localStorage.setItem('guestMessages', JSON.stringify(sortedMessages));
+          console.log(`Successfully loaded and processed ${sortedMessages.length} messages from JSONBin`);
+        } else {
+          console.log('No valid messages found in JSONBin');
         }
       } catch (error) {
-        console.error('Error loading messages from JSONBin:', error);
+        console.error('Error loading messages from JSONBin after retries:', error);
         // Fallback to localStorage if JSONBin fails
         try {
           const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
           if (savedMessages.length > 0) {
             console.log(`Falling back to ${savedMessages.length} messages from localStorage`);
-            setMessages([...initialMessages, ...savedMessages]);
+            // Validate localStorage messages too
+            const validLocalMessages = savedMessages.filter((msg: any) => 
+              msg && 
+              typeof msg.id === 'number' && 
+              typeof msg.author === 'string' && 
+              typeof msg.message === 'string' && 
+              msg.author.trim() !== '' && 
+              msg.message.trim() !== ''
+            );
+            
+            if (validLocalMessages.length > 0) {
+              // Sort messages by ID (timestamp) for consistency
+              const sortedMessages = [...validLocalMessages].sort((a, b) => a.id - b.id);
+              setMessages([...initialMessages, ...sortedMessages]);
+            }
           }
         } catch (localError) {
           console.error('Error loading messages from localStorage:', localError);
@@ -142,6 +178,19 @@ const Messages = () => {
     };
     
     loadMessagesFromJsonBin();
+    
+    // Listen for the custom event from Hero component
+    const handleOpenMessageDialog = () => {
+      setIsDialogOpen(true);
+    };
+    
+    console.log('Adding event listener for open-message-dialog');
+    window.addEventListener('open-message-dialog', handleOpenMessageDialog);
+    
+    return () => {
+      console.log('Removing event listener for open-message-dialog');
+      window.removeEventListener('open-message-dialog', handleOpenMessageDialog);
+    };
   }, []);
 
   // Auto-play functionality
@@ -201,46 +250,70 @@ const Messages = () => {
   const handleAddMessage = async (author: string, message: string) => {
     if (!author.trim() || !message.trim()) return;
     
+    setIsLoading(true);
+    
     const newMessage = {
       id: Date.now(),
-      author,
-      message
+      author: author.trim(),
+      message: message.trim()
     };
     
-    // Add to state
+    // Add to state immediately for UI responsiveness
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     
     // Save to JSONBin first (most reliable for cross-browser persistence)
     try {
       console.log('Saving new message to JSONBin:', { author, message });
-      const success = await addMessage(author, message);
+      const success = await addMessage(author.trim(), message.trim());
       
       if (success) {
         console.log('Message saved successfully to JSONBin');
+        // After successful JSONBin save, refresh messages from JSONBin
+        // This ensures we have the latest shared data
+        try {
+          console.log('Refreshing messages from JSONBin after successful save');
+          const jsonBinMessages = await fetchMessages();
+          
+          // Validate messages before using them
+          const validMessages = jsonBinMessages.filter(msg => 
+            msg && 
+            typeof msg.id === 'number' && 
+            typeof msg.author === 'string' && 
+            typeof msg.message === 'string'
+          );
+          
+          if (validMessages.length > 0) {
+            // Combine initial messages with JSONBin messages
+            setMessages([...initialMessages, ...validMessages]);
+            // Also save to localStorage as backup
+            localStorage.setItem('guestMessages', JSON.stringify(validMessages));
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing messages from JSONBin:', refreshError);
+        }
       } else {
         console.error('Failed to save message to JSONBin');
+        // Fallback to localStorage only if JSONBin fails
+        saveToLocalStorage(updatedMessages);
       }
     } catch (error) {
       console.error('Error saving to JSONBin:', error);
+      // Fallback to localStorage only if JSONBin fails
+      saveToLocalStorage(updatedMessages);
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Also save to localStorage as backup
+  };
+  
+  // Helper function to save messages to localStorage
+  const saveToLocalStorage = (updatedMessages: MessageType[]) => {
     try {
       const userMessages = updatedMessages.filter(msg => !initialMessages.some(initial => initial.id === msg.id));
       localStorage.setItem('guestMessages', JSON.stringify(userMessages));
       console.log(`Saved ${userMessages.length} messages to localStorage as backup`);
     } catch (error) {
       console.error('Error saving to localStorage:', error);
-      // Fallback to localStorage
-      try {
-        const savedMessages = JSON.parse(localStorage.getItem('guestMessages') || '[]');
-        localStorage.setItem('guestMessages', JSON.stringify([...savedMessages, newMessage]));
-      } catch (localError) {
-        console.error('Error saving to localStorage:', localError);
-      }
-    } finally {
-      setIsLoading(false);
     }
   };
 

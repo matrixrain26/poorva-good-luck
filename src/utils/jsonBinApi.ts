@@ -29,9 +29,12 @@ const headers = {
   'X-Bin-Versioning': 'false',
 };
 
-// LocalStorage keys
-const MESSAGES_BIN_ID_KEY = 'poorva_messages_bin_id';
-const PHOTOS_BIN_ID_KEY = 'poorva_photos_bin_id';
+// Default bin IDs - hardcoded for reliability across browsers
+// These are pre-created bins specifically for Poorva's farewell app
+const DEFAULT_MESSAGES_BIN_ID = '65d4a8c5dc74654018a9e3c3';
+const DEFAULT_PHOTOS_BIN_ID = '65d4a8c5dc74654018a9e3c3';
+
+// LocalStorage keys - only used for offline fallback
 const LOCAL_MESSAGES_KEY = 'poorva_messages';
 const LOCAL_PHOTOS_KEY = 'poorva_photos';
 
@@ -55,15 +58,16 @@ const saveLocalData = <T>(key: string, data: T): void => {
 };
 
 // Bin ID management
-const getBinId = (type: 'messages' | 'photos'): string | null => {
-  const key = type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY;
-  return localStorage.getItem(key);
+const getBinId = (type: 'messages' | 'photos'): string => {
+  // Always use the default bin IDs for reliability across browsers
+  if (type === 'messages') {
+    return DEFAULT_MESSAGES_BIN_ID;
+  } else {
+    return DEFAULT_PHOTOS_BIN_ID;
+  }
 };
 
-const saveBinId = (type: 'messages' | 'photos', binId: string): void => {
-  const key = type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY;
-  localStorage.setItem(key, binId);
-};
+// No longer need to save bin IDs as they are hardcoded for reliability
 
 // Message specific helpers
 const getLocalMessages = (): Message[] => {
@@ -94,12 +98,8 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
     ? getLocalMessages() as unknown as T[]
     : getLocalPhotos() as unknown as T[];
   
-  // Check if we have a bin ID
+  // Always use the default bin ID for reliability
   const binId = getBinId(type);
-  if (!binId) {
-    if (DEBUG) console.log(`No JSONBin ID found for ${type}, using localStorage only`);
-    return localData;
-  }
   
   try {
     // Try to fetch from JSONBin
@@ -114,30 +114,64 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
     });
     
     if (!response.ok) {
-      console.error(`JSONBin API error for ${type}:`, response.status);
-      // If bin not found, clear the stored bin ID
-      if (response.status === 404) {
-        localStorage.removeItem(type === 'messages' ? MESSAGES_BIN_ID_KEY : PHOTOS_BIN_ID_KEY);
-      }
+      console.error(`JSONBin API error for ${type}:`, response.status, response.statusText);
+      console.log('Falling back to localStorage data');
       return localData; // Fall back to localStorage
     }
     
     const data = await response.json();
     if (DEBUG) console.log(`JSONBin ${type} response:`, data);
     
-    // Extract data from response
-    const jsonBinData = data?.record?.[type] || [];
+    // Extract data from response - handle both array and object formats
+    let jsonBinData;
+    
+    if (data && data.record) {
+      // Handle different response formats
+      if (Array.isArray(data.record)) {
+        // Direct array format
+        jsonBinData = data.record;
+      } else if (data.record[type] && Array.isArray(data.record[type])) {
+        // Object with type key format
+        jsonBinData = data.record[type];
+      } else {
+        // Unknown format
+        console.warn(`Unknown JSONBin data format for ${type}:`, data.record);
+        jsonBinData = [];
+      }
+    } else {
+      jsonBinData = [];
+    }
+    
+    if (DEBUG) console.log(`Parsed ${jsonBinData.length} items from JSONBin for ${type}`);
     
     if (Array.isArray(jsonBinData) && jsonBinData.length > 0) {
       // Validate data before using it
-      const validData = type === 'photos' 
-        ? (jsonBinData as unknown as PhotoMemory[]).filter(photo => 
-            photo && 
-            typeof photo.id === 'string' && 
-            typeof photo.url === 'string' && 
-            photo.url.includes('cloudinary.com') // Ensure it's a Cloudinary URL
-          )
-        : jsonBinData;
+      let validData;
+      
+      if (type === 'photos') {
+        validData = (jsonBinData as unknown as PhotoMemory[]).filter(photo => 
+          photo && 
+          typeof photo.id === 'string' && 
+          typeof photo.url === 'string' && 
+          photo.url.includes('cloudinary.com') // Ensure it's a Cloudinary URL
+        );
+        
+        if (validData.length !== jsonBinData.length) {
+          console.warn(`Filtered out ${jsonBinData.length - validData.length} invalid photos`);
+        }
+      } else {
+        // For messages
+        validData = (jsonBinData as unknown as Message[]).filter(msg => 
+          msg && 
+          typeof msg.id === 'number' && 
+          typeof msg.author === 'string' && 
+          typeof msg.message === 'string'
+        );
+        
+        if (validData.length !== jsonBinData.length) {
+          console.warn(`Filtered out ${jsonBinData.length - validData.length} invalid messages`);
+        }
+      }
       
       // Save to localStorage for offline access
       if (type === 'messages') {
@@ -145,13 +179,16 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
       } else {
         saveLocalPhotos(validData as unknown as PhotoMemory[]);
       }
+      
       return validData as T[];
     }
     
     // If JSONBin has no data, use localStorage
+    console.log(`No valid data found in JSONBin for ${type}, using localStorage`);
     return localData;
   } catch (error) {
     console.error(`Error fetching ${type} from JSONBin:`, error);
+    console.log('Falling back to localStorage data due to error');
     return localData; // Fall back to localStorage
   }
 };
@@ -163,9 +200,7 @@ const fetchFromJsonBin = async <T>(type: 'messages' | 'photos'): Promise<T[]> =>
  * @returns Promise with success status
  */
 const saveToJsonBin = async <T>(type: 'messages' | 'photos', data: T[]): Promise<boolean> => {
-  if (DEBUG) console.log(`Saving ${type} to JSONBin and localStorage`);
-  
-  // Always save to localStorage first as a backup
+  // Always save to localStorage first as backup
   if (type === 'messages') {
     saveLocalMessages(data as unknown as Message[]);
   } else {
@@ -173,46 +208,34 @@ const saveToJsonBin = async <T>(type: 'messages' | 'photos', data: T[]): Promise
   }
   
   try {
+    // Always use the default bin ID for reliability
     const binId = getBinId(type);
-    let url = BASE_API_URL;
-    let method = 'POST';
-    let body = JSON.stringify({ [type]: data });
     
-    if (binId) {
-      // Update existing bin
-      url = `${BASE_API_URL}/b/${binId}`;
-      method = 'PUT';
-      if (DEBUG) console.log(`Updating existing ${type} bin: ${binId}`);
-    } else {
-      // Create new bin
-      url = `${BASE_API_URL}/b`;
-      method = 'POST';
-      if (DEBUG) console.log(`Creating new bin for ${type}`);
-    }
+    // Prepare data for JSONBin - use different formats based on what we're saving
+    let binData;
     
-    // Save to JSONBin
-    const response = await fetch(url, {
-      method,
+    // For direct array format (more reliable)
+    binData = data;
+    
+    if (DEBUG) console.log(`Saving ${type} to JSONBin (${binId}):`, binData);
+    
+    // Update the bin with our data
+    const updateResponse = await fetch(`${BASE_API_URL}/b/${binId}`, {
+      method: 'PUT',
       headers,
-      body,
+      body: JSON.stringify(binData),
       mode: 'cors',
       cache: 'no-cache',
       credentials: 'omit' // Don't send cookies to avoid CORS issues
     });
     
-    if (!response.ok) {
-      console.error(`JSONBin API error for ${type}: ${response.status} ${response.statusText}`);
-      throw new Error(`JSONBin API error: ${response.status}`);
+    if (!updateResponse.ok) {
+      console.error(`Failed to update ${type} bin:`, updateResponse.status, updateResponse.statusText);
+      return false;
     }
     
-    const responseData = await response.json();
-    if (DEBUG) console.log(`JSONBin ${type} save response:`, responseData);
-    
-    // If we created a new bin, save the bin ID
-    if (!binId && responseData.metadata && responseData.metadata.id) {
-      saveBinId(type, responseData.metadata.id);
-      if (DEBUG) console.log(`New ${type} bin created with ID: ${responseData.metadata.id}`);
-    }
+    const responseData = await updateResponse.json();
+    if (DEBUG) console.log(`${type} saved successfully to JSONBin:`, responseData);
     
     return true;
   } catch (error) {
