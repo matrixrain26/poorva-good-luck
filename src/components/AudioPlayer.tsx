@@ -139,6 +139,10 @@ const AudioPlayer = () => {
         // Try next source after a short delay
         setTimeout(() => {
           tryNextAudioSource();
+          // Force reload the audio element to ensure it picks up the new sources
+          if (audioRef.current) {
+            audioRef.current.load();
+          }
         }, 1000);
       };
       
@@ -178,9 +182,10 @@ const AudioPlayer = () => {
   return (
     <div>
       <audio 
-        ref={audioRef} 
-        loop 
+        ref={audioRef}
         preload="auto"
+        loop
+        crossOrigin="anonymous"
         onLoadStart={() => console.log(`Audio load started: ${currentAudioSrc}`)}
         onEnded={() => setIsPlaying(false)}
         onPlay={() => {

@@ -7,12 +7,12 @@ export const recipientName = "Poorva Bhide";
 export const homecomingDate = "2026-08-14T00:00:00";
 
 // Audio sources in priority order
-// 1. Local file in public directory (primary source) - using relative path for Vite
-export const audioSrc = "/Sounds/redventdigitalmedia.co.za - Coldplay - Hymn For The Weekend Instrumental (320 KBps).mp3";
-// 2. Direct Google Drive URL (public link, may have download issues)
-export const backupAudioSrc1 = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
-// 3. Placeholder for future Cloudinary audio (not currently available)
-export const backupAudioSrc2 = "";
+// 1. Direct URL to audio file (most reliable for production)
+export const audioSrc = "https://docs.google.com/uc?export=download&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
+// 2. Local file in public directory (backup for local development)
+export const backupAudioSrc1 = "/Sounds/redventdigitalmedia.co.za - Coldplay - Hymn For The Weekend Instrumental (320 KBps).mp3";
+// 3. Alternative Google Drive URL (in case primary fails)
+export const backupAudioSrc2 = "https://drive.google.com/uc?export=view&id=1Dyj3yyMrGMvyVD5AxzT7WnyCJ-V0WqO0";
 // Export backupAudioSrc for compatibility with existing code
 export const backupAudioSrc = audioSrc;
 
