@@ -1,0 +1,132 @@
+// Fortune Cookie Widget
+// Lightweight vanilla JS implementation (<2KB)
+
+// Function to initialize the fortune cookie widget
+const initFortuneCookie = () => {
+  // Fortune messages array
+  const fortuneMessages = [
+    "Your GPA will be over 9… in vibes—and 4.0 in hustle.",
+    "First US coffee shop to spell your name right is loading… ☕️",
+    "You'll master office hours like a pro—free tips + free snacks.",
+    "Campus squirrels have elected you their favorite human.",
+    "Your roommate will introduce you to your new favorite hot sauce.",
+    "TSA line luck buff activated. ✈️",
+    "Jet lag? More like jet swagger.",
+    "Your first Target run will heal all homesickness.",
+    "Free Costco sample will become your signature lunch.",
+    "Your professor's curve? Curving in your favor today.",
+    "The campus bus arrives right when you reach the stop.",
+    "Pumpkin spice meets perfect timing. 🍂",
+    "Hoodie weather + library nook = main-character energy.",
+    "You'll find the quiet floor… and then the comfiest chair.",
+    "Group project teammate turns into a lifelong friend.",
+    "Your lab experiment works on the first try (plot twist!).",
+    "The dining hall soft-serve machine never breaks for you.",
+    "TA's feedback: \"Chef's kiss.\"",
+    "You'll discover the coziest indie coffee shop two blocks away.",
+    "First snowfall selfie = flawless. ❄️",
+    "Your campus ID photo somehow slays.",
+    "The laundromat will always have one open washer for you.",
+    "Rain starts only after you reach class.",
+    "The library printer obeys you like a loyal golden retriever.",
+    "Midterm review session gives you all the hinty hints.",
+    "Your Uber driver plays your hype anthem unprompted.",
+    "First thrift shop find = iconic jacket.",
+    "You'll decode the American small talk speedrun in week one.",
+    "Free pizza appears exactly when you need it. 🍕",
+    "Your advisor's calendar magically has a same-day slot.",
+    "You'll nail \"How's it going?\" with a perfect \"Pretty good!\"",
+    "Blackboard/Canvas decides to not be chaotic today.",
+    "The campus gym playlist matches your PR moment.",
+    "Visa forms: done. Chocolate reward: immediate.",
+    "Your first tailgate invites you—yes, the snacks too.",
+    "\"Where are you from?\" becomes your favorite conversation starter.",
+    "You'll turn iced coffee into a personality trait (seasonal).",
+    "The post-midterm nap cures all.",
+    "Your network grows faster than your houseplant collection.",
+    "Graduation cap already bookmarking your destiny. 🎓"
+  ];
+
+  // Initialize variables
+  const fortuneContainer = document.getElementById('fortune-cookie');
+  const fortuneText = document.getElementById('fortune-text');
+  const fortuneButton = document.getElementById('fortune-next');
+  
+  // If elements don't exist, exit early
+  if (!fortuneContainer || !fortuneText || !fortuneButton) return;
+  
+  // Track used messages to avoid immediate repeats
+  let usedMessageIndices = [];
+  
+  // Function to get a random message that hasn't been used recently
+  const getRandomMessage = () => {
+    // If we've used all messages, reset the tracking
+    if (usedMessageIndices.length >= fortuneMessages.length) {
+      usedMessageIndices = [];
+    }
+    
+    // Find an unused message
+    let randomIndex;
+    do {
+      randomIndex = Math.floor(Math.random() * fortuneMessages.length);
+    } while (usedMessageIndices.includes(randomIndex));
+    
+    // Mark this message as used
+    usedMessageIndices.push(randomIndex);
+    
+    return fortuneMessages[randomIndex];
+  };
+  
+  // Function to display a new fortune with fade-in animation
+  const showNewFortune = () => {
+    // Hide text first
+    fortuneText.style.opacity = '0';
+    
+    // After a brief delay, update text and fade it in
+    setTimeout(() => {
+      fortuneText.textContent = getRandomMessage();
+      fortuneText.style.opacity = '1';
+    }, 250);
+  };
+  
+  // Add click event listener to the button
+  fortuneButton.addEventListener('click', showNewFortune);
+  
+  // Add keyboard event listeners for accessibility
+  fortuneButton.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showNewFortune();
+    }
+  });
+  
+  // Show initial fortune on page load
+  showNewFortune();
+  
+  // Add CSS for the fade animation
+  const style = document.createElement('style');
+  style.textContent = `
+    #fortune-text {
+      transition: opacity 250ms ease-in-out;
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #fortune-next:focus {
+      outline: 2px solid #818cf8;
+      outline-offset: 2px;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+// Try to initialize immediately
+initFortuneCookie();
+
+// If elements aren't available yet, try again when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', initFortuneCookie);
+
+// As a final fallback, try again after a short delay to ensure React has rendered
+setTimeout(initFortuneCookie, 1000);
