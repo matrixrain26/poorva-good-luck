@@ -169,23 +169,23 @@ export const photos = [
 export const messages = [
   {
     id: 1,
-    author: "Friends",
-    message: "We know you'll shine bright in your new adventure! Can't wait to hear all your stories."
+    author: "Abhijit",
+    message: "Poorva, Pashchimela challis:) Try new things, meet awesome people, and remember — we're just a call away. Best Wishes :)"
   },
   {
     id: 2,
-    author: "Sister",
-    message: "So proud of you for taking this big step! You've always been brave and brilliant."
-  },
-  {
-    id: 3,
     author: "Parents",
     message: "Our hearts go with you. Study hard but don't forget to enjoy the experience too!"
   },
   {
-    id: 4,
+    id: 3,
     author: "Cousins",
-    message: "You're going to absolutely crush it! We'll miss your laughter around here."
+    message: "You're going to absolutely crush it! We'll miss you over here."
+  },
+  {
+    id: 4,
+    author: "Friends",
+    message: "We know you'll shine bright in your new adventure! Can't wait to hear all your stories."
   }
 ];
 
