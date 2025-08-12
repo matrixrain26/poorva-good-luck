@@ -162,6 +162,12 @@ export const photos = [
     src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1755025340/WhatsApp_Image_2025-08-12_at_18.42.29_bbdpz5.jpg",
     alt: "Poorva with friends",
     note: "These memories will keep us connected across continents!"
+  },
+  {
+    id: "photo_28",
+    src: "https://res.cloudinary.com/dn29d1f9i/image/upload/v1755029726/WhatsApp_Image_2025-08-13_at_01.43.20_tknc8e.jpg",
+    alt: "Poorva's special moment",
+    note: "Cherishing every moment before your new adventure begins!"
   }
 ];
 
