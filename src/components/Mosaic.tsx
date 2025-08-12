@@ -574,17 +574,7 @@ const Mosaic = () => {
       <div className="flex justify-between items-center mb-6">
         <div></div> {/* Empty div for flex spacing */}
         <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <Dialog.Trigger asChild>
-            <button 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              aria-label="Add your memory with Poorva"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add your memory with Poorva
-            </button>
-          </Dialog.Trigger>
+          {/* Memory button removed as requested */}
           
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
