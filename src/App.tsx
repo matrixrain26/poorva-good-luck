@@ -92,6 +92,22 @@ function App() {
         </section>
       </main>
 
+      <section id="fortune" className="py-10">
+        <h2 className="text-3xl font-bold mb-8">Fortune Cookie</h2>
+        <div id="fortune-cookie" aria-live="polite" className="bg-zinc-800/50 backdrop-blur-sm p-6 rounded-lg max-w-2xl mx-auto text-center">
+          <noscript>
+            <p>Your GPA will be over 9… in vibes—and 4.0 in hustle.</p>
+          </noscript>
+          <p id="fortune-text" className="text-xl mb-4"></p>
+          <button 
+            id="fortune-next"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-colors"
+          >
+            Another one!
+          </button>
+        </div>
+      </section>
+
       <footer className="mt-16 py-6 opacity-80 text-sm">
         <p>Created with love for {recipientName}'s MS journey</p>
       </footer>
