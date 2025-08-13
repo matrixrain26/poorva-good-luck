@@ -192,6 +192,11 @@ export const messages = [
     id: 4,
     author: "Friends",
     message: "We know you'll shine bright in your new adventure! Can't wait to hear all your stories."
+  },
+  {
+    id: 5,
+    author: "Shreya",
+    message: "My dearest chinchu, as you head to the States to chase your dreams, know that I'm so proud of you. I'll miss our laughs, our mischief, and those heart-to-heart talks, but I'm so excited for all the adventures waiting for you. And guess what—you've officially been promoted to my book of favourites, permanent VIP status! No matter where you are, you'll always have me right here, cheering you on and loving you endlessly."
   }
 ];
 
